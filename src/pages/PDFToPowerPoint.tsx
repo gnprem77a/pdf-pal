@@ -7,7 +7,7 @@ import ProcessingStatus from "@/components/ProcessingStatus";
 import * as pdfjsLib from "pdfjs-dist";
 import pptxgen from "pptxgenjs";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 const PDFToPowerPoint = () => {
   const [files, setFiles] = useState<File[]>([]);

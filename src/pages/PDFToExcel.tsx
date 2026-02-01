@@ -7,7 +7,7 @@ import ProcessingStatus from "@/components/ProcessingStatus";
 import * as XLSX from "xlsx";
 import * as pdfjsLib from "pdfjs-dist";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 const PDFToExcel = () => {
   const [files, setFiles] = useState<File[]>([]);
