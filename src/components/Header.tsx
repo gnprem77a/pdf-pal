@@ -79,9 +79,9 @@ const Header = () => {
           ) : (
             <div className="flex items-center gap-2">
               <Link to="/login">
-                <Button variant="ghost">Log in</Button>
+                <Button variant="ghost" size="sm" className="px-3">Log in</Button>
               </Link>
-              <Link to="/signup">
+              <Link to="/signup" className="hidden sm:block">
                 <Button className="rounded-full px-6">Get Started</Button>
               </Link>
             </div>
