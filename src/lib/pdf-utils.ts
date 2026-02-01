@@ -192,77 +192,111 @@ export async function getPDFPageCount(file: File): Promise<number> {
 
 export async function downloadBlob(blob: Blob, filename: string) {
   console.log("[downloadBlob] Starting download for:", filename);
-  console.log("[downloadBlob] Capacitor.isNativePlatform():", Capacitor.isNativePlatform());
-  console.log("[downloadBlob] Capacitor.getPlatform():", Capacitor.getPlatform());
-  console.log("[downloadBlob] isRunningInNativeApp():", isRunningInNativeApp());
-  console.log("[downloadBlob] User Agent:", navigator.userAgent);
-  console.log("[downloadBlob] Blob size:", blob.size);
+  console.log("[downloadBlob] Blob size:", blob.size, "type:", blob.type);
   
   const isNative = isRunningInNativeApp();
+  console.log("[downloadBlob] isRunningInNativeApp():", isNative);
   
-  // Check if running on native platform (Android/iOS)
   if (isNative) {
-    console.log("[downloadBlob] Detected native app environment");
+    console.log("[downloadBlob] Native app detected - trying multiple download methods");
     
-    // Try using Capacitor Filesystem if available
-    try {
-      console.log("[downloadBlob] Converting blob to base64...");
-      const base64Data = await blobToBase64(blob);
-      console.log("[downloadBlob] Base64 conversion complete, length:", base64Data.length);
-      
-      // Check if Filesystem plugin is available
-      if (typeof Filesystem?.writeFile === 'function') {
-        console.log("[downloadBlob] Filesystem plugin available, writing file...");
-        const result = await Filesystem.writeFile({
-          path: filename,
-          data: base64Data,
-          directory: Directory.Documents,
-          recursive: true,
-        });
+    // Method 1: Try Capacitor Filesystem if available
+    if (Capacitor.isNativePlatform()) {
+      try {
+        console.log("[downloadBlob] Trying Capacitor Filesystem...");
+        const base64Data = await blobToBase64(blob);
         
-        console.log("[downloadBlob] File saved successfully to:", result.uri);
-        toast.success(`File saved: ${filename}`, {
-          description: `Saved to: ${result.uri}`,
-          duration: 5000,
-        });
-        return;
-      } else {
-        console.log("[downloadBlob] Filesystem plugin not available, falling back to data URL download");
+        if (typeof Filesystem?.writeFile === 'function') {
+          const result = await Filesystem.writeFile({
+            path: filename,
+            data: base64Data,
+            directory: Directory.Documents,
+            recursive: true,
+          });
+          
+          console.log("[downloadBlob] Capacitor Filesystem success:", result.uri);
+          toast.success(`File saved: ${filename}`, {
+            description: `Saved to Documents folder`,
+            duration: 5000,
+          });
+          return;
+        }
+      } catch (error) {
+        console.error("[downloadBlob] Capacitor Filesystem failed:", error);
       }
-    } catch (error) {
-      console.error("[downloadBlob] Filesystem write failed:", error);
-      // Fall through to alternative download method
     }
     
-    // Fallback: Create a download link with data URL
+    // Method 2: Create object URL and open in new window (triggers Android download manager)
     try {
-      console.log("[downloadBlob] Attempting data URL download fallback...");
+      console.log("[downloadBlob] Trying window.open with object URL...");
+      const objectUrl = URL.createObjectURL(blob);
+      
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      
+      // Some Android WebViews need the link to be in the DOM
+      document.body.appendChild(link);
+      
+      // Try click first
+      link.click();
+      
+      // Cleanup after a delay
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
+      }, 1000);
+      
+      toast.success(`Downloading: ${filename}`, {
+        duration: 3000,
+      });
+      return;
+    } catch (error) {
+      console.error("[downloadBlob] Object URL method failed:", error);
+    }
+    
+    // Method 3: Open blob URL directly (some WebViews handle this)
+    try {
+      console.log("[downloadBlob] Trying direct window.open...");
+      const objectUrl = URL.createObjectURL(blob);
+      const newWindow = window.open(objectUrl, '_blank');
+      
+      if (newWindow) {
+        toast.success(`Opening: ${filename}`, {
+          description: "Save from the opened window",
+          duration: 5000,
+        });
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+        return;
+      }
+    } catch (error) {
+      console.error("[downloadBlob] Direct window.open failed:", error);
+    }
+    
+    // Method 4: Use Android's share intent via navigation (last resort)
+    try {
+      console.log("[downloadBlob] Trying data URL navigation...");
       const base64Data = await blobToBase64(blob);
       const mimeType = blob.type || 'application/octet-stream';
-      const dataUrl = `data:${mimeType};base64,${base64Data}`;
       
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = filename;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Navigate to data URL - Android might offer to download
+      window.location.href = `data:${mimeType};base64,${base64Data}`;
       
-      toast.success(`File downloaded: ${filename}`, {
+      toast.success(`Check your downloads for: ${filename}`, {
         duration: 5000,
       });
       return;
-    } catch (fallbackError) {
-      console.error("[downloadBlob] Data URL fallback failed:", fallbackError);
-      toast.error("Failed to save file", {
-        description: fallbackError instanceof Error ? fallbackError.message : "Unknown error",
+    } catch (error) {
+      console.error("[downloadBlob] Data URL navigation failed:", error);
+      toast.error("Download failed", {
+        description: "Please try again or use the web version",
       });
-      throw fallbackError;
     }
   } else {
     console.log("[downloadBlob] Using web download (saveAs)");
-    // Use standard web download for browsers
     saveAs(blob, filename);
   }
 }
