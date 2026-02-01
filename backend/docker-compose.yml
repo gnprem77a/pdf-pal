@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  pdf-backend:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - HOST=http://localhost:8080
+      - TEMP_DIR=/app/temp
+      - FILE_TTL_MINUTES=10
+    volumes:
+      - pdf-temp:/app/temp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  pdf-temp:
