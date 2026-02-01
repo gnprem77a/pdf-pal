@@ -25,9 +25,6 @@ import ReorderPages from "./pages/ReorderPages";
 import AddHeaderFooter from "./pages/AddHeaderFooter";
 import UnlockPDF from "./pages/UnlockPDF";
 import ESignPDF from "./pages/ESignPDF";
-import AISummarize from "./pages/AISummarize";
-import PDFChat from "./pages/PDFChat";
-import TranslatePDF from "./pages/TranslatePDF";
 
 const queryClient = new QueryClient();
 
@@ -59,9 +56,6 @@ const App = () => (
           <Route path="/add-header-footer" element={<AddHeaderFooter />} />
           <Route path="/unlock-pdf" element={<UnlockPDF />} />
           <Route path="/esign-pdf" element={<ESignPDF />} />
-          <Route path="/ai-summarize" element={<AISummarize />} />
-          <Route path="/pdf-chat" element={<PDFChat />} />
-          <Route path="/translate-pdf" element={<TranslatePDF />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
