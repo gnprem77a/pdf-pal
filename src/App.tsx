@@ -33,6 +33,19 @@ import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import Dashboard from "./pages/Dashboard";
 import Checkout from "./pages/Checkout";
+// New pages
+import ExtractPages from "./pages/ExtractPages";
+import CropPDF from "./pages/CropPDF";
+import HTMLToPDF from "./pages/HTMLToPDF";
+import ScanToPDF from "./pages/ScanToPDF";
+import RepairPDF from "./pages/RepairPDF";
+import PowerPointToPDF from "./pages/PowerPointToPDF";
+import ExcelToPDF from "./pages/ExcelToPDF";
+import PDFToPowerPoint from "./pages/PDFToPowerPoint";
+import PDFToExcel from "./pages/PDFToExcel";
+import PDFToPDFA from "./pages/PDFToPDFA";
+import RedactPDF from "./pages/RedactPDF";
+import ComparePDF from "./pages/ComparePDF";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +85,19 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/checkout" element={<Checkout />} />
+            {/* New routes */}
+            <Route path="/extract-pages" element={<ExtractPages />} />
+            <Route path="/crop-pdf" element={<CropPDF />} />
+            <Route path="/html-to-pdf" element={<HTMLToPDF />} />
+            <Route path="/scan-to-pdf" element={<ScanToPDF />} />
+            <Route path="/repair-pdf" element={<RepairPDF />} />
+            <Route path="/powerpoint-to-pdf" element={<PowerPointToPDF />} />
+            <Route path="/excel-to-pdf" element={<ExcelToPDF />} />
+            <Route path="/pdf-to-powerpoint" element={<PDFToPowerPoint />} />
+            <Route path="/pdf-to-excel" element={<PDFToExcel />} />
+            <Route path="/pdf-to-pdfa" element={<PDFToPDFA />} />
+            <Route path="/redact-pdf" element={<RedactPDF />} />
+            <Route path="/compare-pdf" element={<ComparePDF />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
