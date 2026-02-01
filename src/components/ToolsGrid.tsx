@@ -16,10 +16,7 @@ import {
   AlignVerticalSpaceAround,
   Info,
   Unlock,
-  PenTool,
-  Sparkles,
-  MessageSquare,
-  Languages
+  PenTool
 } from "lucide-react";
 import ToolCard from "./ToolCard";
 
@@ -160,28 +157,6 @@ const tools = [
     description: "Extract text from scanned PDFs.",
     color: "compress" as const,
     href: "/ocr-pdf",
-  },
-  // AI Features
-  {
-    icon: Sparkles,
-    title: "AI Summarize",
-    description: "Generate AI summaries of PDFs.",
-    color: "word" as const,
-    href: "/ai-summarize",
-  },
-  {
-    icon: MessageSquare,
-    title: "Chat with PDF",
-    description: "Ask questions about your PDF.",
-    color: "word" as const,
-    href: "/pdf-chat",
-  },
-  {
-    icon: Languages,
-    title: "Translate PDF",
-    description: "Translate PDFs to other languages.",
-    color: "compress" as const,
-    href: "/translate-pdf",
   },
   {
     icon: FileText,
