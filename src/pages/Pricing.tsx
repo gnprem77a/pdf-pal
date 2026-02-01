@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Check, Zap, Crown, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -126,12 +127,22 @@ const Pricing = () => {
                   </CardContent>
                   
                   <CardFooter>
-                    <Button 
-                      className="w-full" 
-                      variant={plan.popular ? "default" : "outline"}
-                    >
-                      {plan.cta}
-                    </Button>
+                    {plan.name === "Free" ? (
+                      <Link to="/signup" className="w-full">
+                        <Button className="w-full" variant="outline">
+                          {plan.cta}
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Link to={`/checkout?plan=${plan.name.toLowerCase()}-monthly`} className="w-full">
+                        <Button 
+                          className="w-full" 
+                          variant={plan.popular ? "default" : "outline"}
+                        >
+                          {plan.cta}
+                        </Button>
+                      </Link>
+                    )}
                   </CardFooter>
                 </Card>
               ))}
