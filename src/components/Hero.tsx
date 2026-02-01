@@ -27,13 +27,17 @@ const Hero = () => {
           </p>
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Button size="lg" className="group rounded-full px-8 text-base">
-              Explore All Tools
-              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Button>
-            <Button size="lg" variant="outline" className="rounded-full px-8 text-base">
-              Learn More
-            </Button>
+            <a href="#tools">
+              <Button size="lg" className="group rounded-full px-8 text-base">
+                Explore All Tools
+                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Button>
+            </a>
+            <a href="#features">
+              <Button size="lg" variant="outline" className="rounded-full px-8 text-base">
+                Learn More
+              </Button>
+            </a>
           </div>
         </div>
       </div>
