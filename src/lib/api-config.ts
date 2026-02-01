@@ -19,10 +19,28 @@ export const API_CONFIG = {
     
     // Archive
     pdfToPdfa: "/api/convert/pdf-to-pdfa",
+    
+    // PDF Operations (for Android - returns download URL)
+    mergePdf: "/api/pdf/merge",
+    splitPdf: "/api/pdf/split",
+    compressPdf: "/api/pdf/compress",
+    rotatePdf: "/api/pdf/rotate",
+    extractPages: "/api/pdf/extract",
+    watermarkPdf: "/api/pdf/watermark",
+    deletePages: "/api/pdf/delete-pages",
+    reorderPages: "/api/pdf/reorder",
   },
 };
 
 // Helper to get full URL
 export const getApiUrl = (endpoint: keyof typeof API_CONFIG.endpoints): string => {
   return `${API_CONFIG.baseUrl}${API_CONFIG.endpoints[endpoint]}`;
+};
+
+// Check if we should use backend processing (for Android WebView)
+export const shouldUseBackendProcessing = (): boolean => {
+  const ua = navigator.userAgent.toLowerCase();
+  const isAndroidWebView = ua.includes('wv') || (ua.includes('android') && ua.includes('version/'));
+  const isIOSWebView = /(iphone|ipod|ipad).*applewebkit(?!.*safari)/i.test(navigator.userAgent);
+  return isAndroidWebView || isIOSWebView;
 };
