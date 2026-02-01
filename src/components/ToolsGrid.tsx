@@ -16,22 +16,26 @@ import {
   AlignVerticalSpaceAround,
   Info,
   Unlock,
-  PenTool
+  PenTool,
+  Sparkles,
+  MessageSquare,
+  Languages
 } from "lucide-react";
 import ToolCard from "./ToolCard";
 
 const tools = [
+  // Conversion Tools
   {
     icon: Merge,
     title: "Merge PDF",
-    description: "Combine multiple PDFs into one document in seconds.",
+    description: "Combine multiple PDFs into one document.",
     color: "merge" as const,
     href: "/merge-pdf",
   },
   {
     icon: Scissors,
     title: "Split PDF",
-    description: "Separate one PDF into multiple files easily.",
+    description: "Separate one PDF into multiple files.",
     color: "split" as const,
     href: "/split-pdf",
   },
@@ -45,7 +49,7 @@ const tools = [
   {
     icon: FileType,
     title: "PDF to Word",
-    description: "Convert your PDF files into editable Word documents.",
+    description: "Convert PDF to editable Word documents.",
     color: "word" as const,
     href: "/pdf-to-word",
   },
@@ -77,87 +81,112 @@ const tools = [
     color: "image" as const,
     href: "/pdf-to-image",
   },
-  {
-    icon: Lock,
-    title: "Protect PDF",
-    description: "Add password protection to your PDF files.",
-    color: "protect" as const,
-    href: "/protect-pdf",
-  },
-  {
-    icon: Unlock,
-    title: "Unlock PDF",
-    description: "Remove restrictions from PDF files.",
-    color: "protect" as const,
-    href: "/unlock-pdf",
-  },
+  // Page Management
   {
     icon: RotateCw,
     title: "Rotate PDF",
-    description: "Rotate PDF pages to the correct orientation.",
+    description: "Rotate pages to correct orientation.",
     color: "merge" as const,
     href: "/rotate-pdf",
   },
   {
     icon: ArrowUpDown,
     title: "Reorder Pages",
-    description: "Drag and drop to rearrange PDF pages.",
+    description: "Drag and drop to rearrange pages.",
     color: "merge" as const,
     href: "/reorder-pages",
   },
   {
     icon: Trash2,
     title: "Delete Pages",
-    description: "Remove specific pages from your PDF.",
+    description: "Remove specific pages from PDF.",
     color: "split" as const,
     href: "/delete-pages",
   },
   {
-    icon: Stamp,
-    title: "Watermark",
-    description: "Add text or image watermarks to your PDFs.",
-    color: "split" as const,
-    href: "/watermark-pdf",
-  },
-  {
     icon: Hash,
     title: "Page Numbers",
-    description: "Add page numbers to your PDF documents.",
+    description: "Add page numbers to your PDF.",
     color: "merge" as const,
     href: "/add-page-numbers",
   },
   {
     icon: AlignVerticalSpaceAround,
     title: "Header & Footer",
-    description: "Insert headers and footers to your PDFs.",
+    description: "Insert headers and footers.",
     color: "split" as const,
     href: "/add-header-footer",
   },
+  // Security & Protection
   {
-    icon: Info,
-    title: "PDF Metadata",
-    description: "Edit PDF document properties.",
-    color: "compress" as const,
-    href: "/pdf-metadata",
+    icon: Lock,
+    title: "Protect PDF",
+    description: "Add password protection.",
+    color: "protect" as const,
+    href: "/protect-pdf",
+  },
+  {
+    icon: Unlock,
+    title: "Unlock PDF",
+    description: "Remove restrictions from PDF.",
+    color: "protect" as const,
+    href: "/unlock-pdf",
   },
   {
     icon: PenTool,
     title: "E-Sign PDF",
-    description: "Add your signature to PDF documents.",
+    description: "Add your signature to documents.",
     color: "protect" as const,
     href: "/esign-pdf",
+  },
+  // Editing & Annotations
+  {
+    icon: Stamp,
+    title: "Watermark",
+    description: "Add text watermarks to PDFs.",
+    color: "split" as const,
+    href: "/watermark-pdf",
+  },
+  {
+    icon: Info,
+    title: "PDF Metadata",
+    description: "Edit document properties.",
+    color: "compress" as const,
+    href: "/pdf-metadata",
   },
   {
     icon: FileSearch,
     title: "OCR PDF",
-    description: "Make scanned PDFs searchable with text recognition.",
+    description: "Extract text from scanned PDFs.",
     color: "compress" as const,
     href: "/ocr-pdf",
+  },
+  // AI Features
+  {
+    icon: Sparkles,
+    title: "AI Summarize",
+    description: "Generate AI summaries of PDFs.",
+    color: "word" as const,
+    href: "/ai-summarize",
+  },
+  {
+    icon: MessageSquare,
+    title: "Chat with PDF",
+    description: "Ask questions about your PDF.",
+    color: "word" as const,
+    href: "/pdf-chat",
+  },
+  {
+    icon: Languages,
+    title: "Translate PDF",
+    description: "Translate PDFs to other languages.",
+    color: "compress" as const,
+    href: "/translate-pdf",
   },
   {
     icon: FileText,
     title: "Edit PDF",
-    description: "Add text, shapes, and annotations to PDFs.",
+    description: "Add text and annotations.",
     color: "word" as const,
     href: "/edit-pdf",
   },
@@ -176,7 +205,7 @@ const ToolsGrid = () => {
           </p>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
           {tools.map((tool, index) => (
             <ToolCard
               key={tool.title}
@@ -184,7 +213,7 @@ const ToolsGrid = () => {
               title={tool.title}
               description={tool.description}
               color={tool.color}
-              delay={index * 30}
+              delay={index * 20}
               href={tool.href}
             />
           ))}
