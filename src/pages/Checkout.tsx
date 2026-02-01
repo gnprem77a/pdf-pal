@@ -27,21 +27,6 @@ const plans = [
     savings: "Save $18",
     features: ["Unlimited files", "100 MB per file", "No watermarks", "Batch processing"],
   },
-  {
-    id: "business-monthly",
-    name: "Business Monthly",
-    price: 29,
-    period: "month",
-    features: ["Everything in Pro", "500 MB per file", "Team collaboration", "API access"],
-  },
-  {
-    id: "business-yearly",
-    name: "Business Yearly",
-    price: 290,
-    period: "year",
-    savings: "Save $58",
-    features: ["Everything in Pro", "500 MB per file", "Team collaboration", "API access"],
-  },
 ];
 
 const Checkout = () => {
