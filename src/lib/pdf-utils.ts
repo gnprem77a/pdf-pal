@@ -1,6 +1,9 @@
 import { PDFDocument, degrees } from "pdf-lib";
 import { saveAs } from "file-saver";
 import JSZip from "jszip";
+import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { toast } from "sonner";
 
 // Helper to convert Uint8Array to Blob
 function uint8ArrayToBlob(data: Uint8Array, type: string): Blob {
@@ -8,6 +11,21 @@ function uint8ArrayToBlob(data: Uint8Array, type: string): Blob {
   const buffer = new ArrayBuffer(data.length);
   new Uint8Array(buffer).set(data);
   return new Blob([buffer], { type });
+}
+
+// Helper to convert Blob to base64
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
+      const base64Data = base64.split(",")[1];
+      resolve(base64Data);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 export async function mergePDFs(files: File[]): Promise<Blob> {
@@ -148,8 +166,36 @@ export async function getPDFPageCount(file: File): Promise<number> {
   return pdf.getPageCount();
 }
 
-export function downloadBlob(blob: Blob, filename: string) {
-  saveAs(blob, filename);
+export async function downloadBlob(blob: Blob, filename: string) {
+  // Check if running on native platform (Android/iOS)
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const base64Data = await blobToBase64(blob);
+      
+      // Save to Downloads directory on Android, Documents on iOS
+      const result = await Filesystem.writeFile({
+        path: filename,
+        data: base64Data,
+        directory: Directory.Documents,
+        recursive: true,
+      });
+      
+      console.log("File saved to:", result.uri);
+      toast.success(`File saved: ${filename}`, {
+        description: "Check your Documents folder",
+        duration: 5000,
+      });
+    } catch (error) {
+      console.error("Failed to save file:", error);
+      toast.error("Failed to save file", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw error;
+    }
+  } else {
+    // Use standard web download for browsers
+    saveAs(blob, filename);
+  }
 }
 
 export async function downloadAsZip(blobs: Blob[], filenames: string[]) {
