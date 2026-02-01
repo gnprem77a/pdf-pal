@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Check, Zap, Crown, Building2 } from "lucide-react";
+import { Check, Zap, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,25 +41,6 @@ const plans = [
     cta: "Start Pro Trial",
     popular: true,
   },
-  {
-    name: "Business",
-    description: "For teams and organizations",
-    price: "$29",
-    period: "per month",
-    icon: Building2,
-    features: [
-      "Everything in Pro",
-      "Up to 500 MB per file",
-      "Team collaboration",
-      "Admin dashboard",
-      "API access",
-      "Custom branding",
-      "Dedicated support",
-      "SSO integration",
-    ],
-    cta: "Contact Sales",
-    popular: false,
-  },
 ];
 
 const Pricing = () => {
@@ -86,7 +67,7 @@ const Pricing = () => {
         {/* Pricing Cards */}
         <section className="pb-20">
           <div className="container">
-            <div className="grid gap-8 md:grid-cols-3 max-w-5xl mx-auto">
+            <div className="grid gap-8 md:grid-cols-2 max-w-3xl mx-auto">
               {plans.map((plan) => (
                 <Card 
                   key={plan.name} 
