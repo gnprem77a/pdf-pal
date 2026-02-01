@@ -167,12 +167,20 @@ export async function getPDFPageCount(file: File): Promise<number> {
 }
 
 export async function downloadBlob(blob: Blob, filename: string) {
+  console.log("[downloadBlob] Starting download for:", filename);
+  console.log("[downloadBlob] Capacitor.isNativePlatform():", Capacitor.isNativePlatform());
+  console.log("[downloadBlob] Capacitor.getPlatform():", Capacitor.getPlatform());
+  console.log("[downloadBlob] Blob size:", blob.size);
+  
   // Check if running on native platform (Android/iOS)
   if (Capacitor.isNativePlatform()) {
     try {
+      console.log("[downloadBlob] Converting blob to base64...");
       const base64Data = await blobToBase64(blob);
+      console.log("[downloadBlob] Base64 conversion complete, length:", base64Data.length);
       
       // Save to Downloads directory on Android, Documents on iOS
+      console.log("[downloadBlob] Writing file to Documents directory...");
       const result = await Filesystem.writeFile({
         path: filename,
         data: base64Data,
@@ -180,19 +188,20 @@ export async function downloadBlob(blob: Blob, filename: string) {
         recursive: true,
       });
       
-      console.log("File saved to:", result.uri);
+      console.log("[downloadBlob] File saved successfully to:", result.uri);
       toast.success(`File saved: ${filename}`, {
-        description: "Check your Documents folder",
+        description: `Saved to: ${result.uri}`,
         duration: 5000,
       });
     } catch (error) {
-      console.error("Failed to save file:", error);
+      console.error("[downloadBlob] Failed to save file:", error);
       toast.error("Failed to save file", {
         description: error instanceof Error ? error.message : "Unknown error",
       });
       throw error;
     }
   } else {
+    console.log("[downloadBlob] Using web download (saveAs)");
     // Use standard web download for browsers
     saveAs(blob, filename);
   }

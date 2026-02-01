@@ -4,6 +4,7 @@ import ToolLayout from "@/components/ToolLayout";
 import FileUpload from "@/components/FileUpload";
 import { Button } from "@/components/ui/button";
 import ProcessingStatus from "@/components/ProcessingStatus";
+import { downloadBlob } from "@/lib/pdf-utils";
 import * as pdfjsLib from "pdfjs-dist";
 import pptxgen from "pptxgenjs";
 
@@ -60,9 +61,10 @@ const PDFToPowerPoint = () => {
 
       setProgress(95);
       
-      // Generate and download
+      // Generate blob and use native download
       const originalName = files[0].name.replace(".pdf", "");
-      await pptx.writeFile({ fileName: `${originalName}.pptx` });
+      const pptxBlob = await pptx.write({ outputType: "blob" }) as Blob;
+      await downloadBlob(pptxBlob, `${originalName}.pptx`);
 
       setProgress(100);
       setStatus("success");
