@@ -1,8 +1,8 @@
 # Go Backend API Specification
 
-This document describes the API endpoints your Go backend needs to implement for the PDF tools.
+This document describes the API endpoints implemented by the PDF processing backend.
 
-**IMPORTANT: All processing is now server-side. The frontend sends files to your backend and receives a download URL.**
+**All processing is server-side. The frontend sends files and receives a download URL.**
 
 ## Base Configuration
 
@@ -16,347 +16,416 @@ VITE_API_URL=https://api.yourdomain.com
 All endpoints return JSON with a download URL:
 ```json
 {
-  "downloadUrl": "https://your-bucket.s3.amazonaws.com/output-abc123.pdf"
+  "downloadUrl": "https://your-host/files/output-abc123.pdf"
+}
+```
+
+## Error Response
+
+```json
+{
+  "error": "Description of what went wrong"
 }
 ```
 
 ## Privacy & Data Retention
 
-- All uploaded/generated files must be deleted automatically (5-10 min TTL or S3 lifecycle rules)
-- No user data should persist after download
+- All uploaded/generated files are deleted automatically (default: 10 minutes)
+- No user data persists after download
+- Background cleanup runs every minute
 
-## Required Endpoints
+---
+
+## Health Check
+
+```
+GET /health
+```
+
+Response:
+```json
+{
+  "status": "ok",
+  "dependencies": {
+    "libreoffice": true,
+    "tesseract": true,
+    "ghostscript": true,
+    "imagemagick": true
+  }
+}
+```
+
+---
+
+## PDF Operations
 
 All endpoints accept `multipart/form-data` with:
 - `file0`, `file1`, etc.: The uploaded files
-- `fileCount`: Number of files
+- `fileCount`: Number of files (for multi-file operations)
 - Additional parameters as specified
 
-### PDF Operations
-| Endpoint | Purpose |
-|----------|---------|
-| `POST /api/pdf/merge` | Merge multiple PDFs |
-| `POST /api/pdf/split` | Split PDF (params: `ranges` or `mode=individual`) |
-| `POST /api/pdf/compress` | Compress PDF |
-| `POST /api/pdf/rotate` | Rotate PDF (param: `angle`) |
-| `POST /api/pdf/extract` | Extract pages (param: `pages` JSON array) |
-| `POST /api/pdf/watermark` | Add watermark (param: `text`) |
-| `POST /api/pdf/delete-pages` | Delete pages (param: `pages` JSON array) |
-| `POST /api/pdf/reorder` | Reorder pages (param: `order` JSON array) |
-| `POST /api/pdf/crop` | Crop PDF (params: `top`, `right`, `bottom`, `left`) |
-| `POST /api/pdf/ocr` | OCR PDF (param: `language`) |
-| `POST /api/pdf/sign` | Add signature (param: `signature` base64 image) |
-| `POST /api/pdf/edit` | Apply annotations (param: `annotations` JSON) |
-| `POST /api/pdf/repair` | Repair corrupted PDF |
-| `POST /api/pdf/add-page-numbers` | Add page numbers (param: `position`) |
-| `POST /api/pdf/add-header-footer` | Add headers/footers (params: `header`, `footer`) |
-| `POST /api/pdf/metadata` | Update metadata (params: `title`, `author`, etc.) |
-| `POST /api/pdf/redact` | Redact sensitive content |
-| `POST /api/pdf/unlock` | Unlock PDF (param: `password`) |
-| `POST /api/security/protect` | Password protect PDF |
-
-### Conversions
-| Endpoint | Purpose |
-|----------|---------|
-
-Form Fields:
-- file: The PowerPoint file (.ppt or .pptx)
-
-Response:
-- Content-Type: application/pdf
-- Body: The converted PDF file
-```
-
-#### PDF to PowerPoint
-```
-POST /api/convert/pdf-to-ppt
-Content-Type: multipart/form-data
-
-Form Fields:
-- file: The PDF file
-
-Response:
-- Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation
-- Body: The converted PowerPoint file
-```
-
-### Security
-
-#### Protect PDF
-```
-POST /api/security/protect
-Content-Type: multipart/form-data
-
-Form Fields:
-- file: The PDF file
-- password: The password to set
-
-Response:
-- Content-Type: application/pdf
-- Body: The password-protected PDF file
-```
-
-### Archive Format
-
-#### PDF to PDF/A
-```
-POST /api/convert/pdf-to-pdfa
-Content-Type: multipart/form-data
-
-Form Fields:
-- file: The PDF file
-
-Response:
-- Content-Type: application/pdf
-- Body: The PDF/A compliant file
-```
-
-### PDF Operations (Android-Compatible - Returns Download URL)
-
-These endpoints process PDFs server-side and return a download URL. This is required for Android WebView compatibility since blob URLs don't work reliably.
-
-#### Merge PDFs
+### Merge PDFs
 ```
 POST /api/pdf/merge
-Content-Type: multipart/form-data
-
-Form Fields:
-- file0, file1, file2...: PDF files to merge
-- fileCount: Number of files
-
-Response (JSON):
-{
-  "downloadUrl": "https://your-s3-bucket.s3.amazonaws.com/merged-abc123.pdf"
-}
 ```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0`, `file1`, ... | File | Yes | PDF files to merge |
+| `fileCount` | Number | Yes | Number of files |
 
-#### Split PDF
+### Split PDF
 ```
 POST /api/pdf/split
-Content-Type: multipart/form-data
-
-Form Fields:
-- file0: The PDF file
-- ranges: JSON array of ranges, e.g., '[{"start":1,"end":3},{"start":5,"end":7}]'
-- mode: (optional) "individual" to split into single pages
-
-Response (JSON):
-{
-  "downloadUrl": "https://your-s3-bucket.s3.amazonaws.com/split-abc123.zip"
-}
 ```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file to split |
+| `mode` | String | No | `individual` to split into single pages |
+| `ranges` | JSON | No | `[{"start":1,"end":3},{"start":5,"end":7}]` |
 
-#### Compress PDF
+Returns a ZIP file containing the split PDFs.
+
+### Compress PDF
 ```
 POST /api/pdf/compress
-Content-Type: multipart/form-data
-
-Form Fields:
-- file0: The PDF file
-
-Response (JSON):
-{
-  "downloadUrl": "https://your-s3-bucket.s3.amazonaws.com/compressed-abc123.pdf"
-}
 ```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file to compress |
 
-#### Rotate PDF
+### Rotate PDF
 ```
 POST /api/pdf/rotate
-Content-Type: multipart/form-data
-
-Form Fields:
-- file0: The PDF file
-- angle: Rotation angle (90, 180, 270)
-
-Response (JSON):
-{
-  "downloadUrl": "https://your-s3-bucket.s3.amazonaws.com/rotated-abc123.pdf"
-}
 ```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file to rotate |
+| `angle` | Number | No | Rotation angle: 90, 180, 270 (default: 90) |
 
-#### Extract Pages
+### Extract Pages
 ```
 POST /api/pdf/extract
-Content-Type: multipart/form-data
-
-Form Fields:
-- file0: The PDF file
-- pages: JSON array of page numbers, e.g., '[1,3,5,7]'
-
-Response (JSON):
-{
-  "downloadUrl": "https://your-s3-bucket.s3.amazonaws.com/extracted-abc123.pdf"
-}
 ```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+| `pages` | JSON | Yes | `[1,3,5,7]` - page numbers to extract |
 
-#### Add Watermark
+### Add Watermark
 ```
 POST /api/pdf/watermark
-Content-Type: multipart/form-data
-
-Form Fields:
-- file0: The PDF file
-- text: Watermark text
-
-Response (JSON):
-{
-  "downloadUrl": "https://your-s3-bucket.s3.amazonaws.com/watermarked-abc123.pdf"
-}
 ```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+| `text` | String | No | Watermark text (default: "WATERMARK") |
 
-#### Delete Pages
+### Delete Pages
 ```
 POST /api/pdf/delete-pages
-Content-Type: multipart/form-data
-
-Form Fields:
-- file0: The PDF file
-- pages: JSON array of page numbers to delete
-
-Response (JSON):
-{
-  "downloadUrl": "https://your-s3-bucket.s3.amazonaws.com/deleted-abc123.pdf"
-}
 ```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+| `pages` | JSON | Yes | `[2,4,6]` - page numbers to delete |
 
-#### Reorder Pages
+### Reorder Pages
 ```
 POST /api/pdf/reorder
-Content-Type: multipart/form-data
-
-Form Fields:
-- file0: The PDF file
-- order: JSON array of new page order, e.g., '[3,1,2,4]'
-
-Response (JSON):
-{
-  "downloadUrl": "https://your-s3-bucket.s3.amazonaws.com/reordered-abc123.pdf"
-}
 ```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+| `order` | JSON | Yes | `[3,1,2,4]` - new page order |
+
+### Crop PDF
+```
+POST /api/pdf/crop
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+| `top` | Number | Yes | Top margin in points |
+| `right` | Number | Yes | Right margin in points |
+| `bottom` | Number | Yes | Bottom margin in points |
+| `left` | Number | Yes | Left margin in points |
+
+### Repair PDF
+```
+POST /api/pdf/repair
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file to repair |
+
+### Add Page Numbers
+```
+POST /api/pdf/add-page-numbers
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+| `position` | String | No | Position: bc, tc, tl, tr, bl, br (default: bc) |
+
+### Add Header/Footer
+```
+POST /api/pdf/add-header-footer
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+| `header` | String | No | Header text |
+| `footer` | String | No | Footer text |
+
+### Update Metadata
+```
+POST /api/pdf/metadata
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+| `title` | String | No | Document title |
+| `author` | String | No | Document author |
+| `subject` | String | No | Document subject |
+| `keywords` | String | No | Document keywords |
+
+### Unlock PDF
+```
+POST /api/pdf/unlock
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | Password-protected PDF |
+| `password` | String | Yes | PDF password |
+
+### OCR PDF
+```
+POST /api/pdf/ocr
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF with scanned images |
+| `language` | String | No | OCR language: eng, fra, deu, spa, etc. (default: eng) |
+
+**Requires:** `ocrmypdf` and `tesseract-ocr`
+
+### E-Sign PDF
+```
+POST /api/pdf/sign
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+| `signature` | String | Yes | Base64-encoded signature image |
+| `page` | String | No | Page number to sign (default: 1) |
+
+### Redact PDF
+```
+POST /api/pdf/redact
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+| `areas` | JSON | Yes | `[{"page":1,"x":100,"y":200,"width":50,"height":20}]` |
+
+### Compare PDFs
+```
+POST /api/pdf/compare
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | First PDF |
+| `file1` | File | Yes | Second PDF |
+
+Returns a PDF with highlighted differences.
+
+**Requires:** `ghostscript` and `imagemagick`
+
+---
+
+## Security
+
+### Protect PDF
+```
+POST /api/security/protect
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+| `password` | String | Yes | Password to set |
+
+---
+
+## Conversions - To PDF
+
+### Word to PDF
+```
+POST /api/convert/word-to-pdf
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | .doc or .docx file |
+
+**Requires:** `libreoffice`
+
+### Excel to PDF
+```
+POST /api/convert/excel-to-pdf
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | .xls or .xlsx file |
+
+**Requires:** `libreoffice`
+
+### PowerPoint to PDF
+```
+POST /api/convert/ppt-to-pdf
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | .ppt or .pptx file |
+
+**Requires:** `libreoffice`
+
+### Image to PDF
+```
+POST /api/convert/image-to-pdf
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0`, `file1`, ... | File | Yes | Image files |
+| `fileCount` | Number | No | Number of images |
+
+**Requires:** `imagemagick`
+
+### HTML to PDF
+```
+POST /api/convert/html-to-pdf
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | HTML file |
+
+**Requires:** `wkhtmltopdf` or `libreoffice`
+
+---
+
+## Conversions - From PDF
+
+### PDF to Word
+```
+POST /api/convert/pdf-to-word
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+
+Returns: .docx file
+
+**Requires:** `libreoffice`
+
+### PDF to Excel
+```
+POST /api/convert/pdf-to-excel
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+
+Returns: .xlsx file
+
+**Requires:** `libreoffice`
+
+### PDF to PowerPoint
+```
+POST /api/convert/pdf-to-ppt
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+
+Returns: .pptx file
+
+**Requires:** `libreoffice`
+
+### PDF to Image
+```
+POST /api/convert/pdf-to-image
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+| `format` | String | No | Output format: png, jpg (default: png) |
+| `dpi` | String | No | Resolution (default: 150) |
+
+Returns: ZIP file with images
+
+**Requires:** `ghostscript`
+
+### PDF to Text
+```
+POST /api/convert/pdf-to-text
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+
+Returns: .txt file
+
+**Requires:** `poppler-utils` (pdftotext)
+
+### PDF to PDF/A
+```
+POST /api/convert/pdf-to-pdfa
+```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `file0` | File | Yes | PDF file |
+
+Returns: PDF/A-2 compliant file
+
+**Requires:** `ghostscript`
+
+---
 
 ## CORS Headers
 
-Your backend MUST include these CORS headers:
+The backend includes these CORS headers:
 ```
 Access-Control-Allow-Origin: *
 Access-Control-Allow-Methods: GET, POST, OPTIONS
 Access-Control-Allow-Headers: Content-Type
 ```
 
-## Recommended Go Libraries
+---
 
-| Feature | Library |
+## Required System Dependencies
+
+| Feature | Package |
 |---------|---------|
-| HTTP Router | `github.com/gin-gonic/gin` or `github.com/gorilla/mux` |
-| Office Conversions | LibreOffice (via `exec.Command`) |
-| PDF Encryption | `github.com/unidoc/unipdf/v3` (or qpdf CLI) |
-| PDF/A | Ghostscript CLI |
-| PDF Manipulation | `github.com/pdfcpu/pdfcpu` |
-| S3 Storage | `github.com/aws/aws-sdk-go-v2/service/s3` |
+| Document conversions | `libreoffice` |
+| OCR | `tesseract-ocr`, `ocrmypdf` |
+| PDF/A, PDF to Image | `ghostscript` |
+| Image processing | `imagemagick` |
+| PDF text extraction | `poppler-utils` |
+| HTML to PDF | `wkhtmltopdf` |
 
-## Docker Setup for LibreOffice
+---
+
+## Docker Deployment
 
 ```dockerfile
-FROM golang:1.21-alpine AS builder
-WORKDIR /app
-COPY . .
-RUN go build -o server .
-
-FROM alpine:3.19
-RUN apk add --no-cache libreoffice ghostscript qpdf
-COPY --from=builder /app/server /server
-EXPOSE 8080
-CMD ["/server"]
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y \
+    libreoffice \
+    tesseract-ocr tesseract-ocr-eng \
+    ocrmypdf \
+    ghostscript \
+    imagemagick \
+    poppler-utils \
+    wkhtmltopdf \
+    fonts-liberation fonts-dejavu-core
 ```
 
-## AWS Architecture
-
-```
-                                    ┌──────────────────┐
-                                    │   S3 Bucket      │
-                                    │ (temp file store)│
-                                    └────────┬─────────┘
-                                             │
-┌─────────────┐    ┌─────────────┐    ┌──────┴─────────┐
-│   Frontend  │───▶│ API Gateway │───▶│  Lambda/ECS    │
-│  (Lovable)  │    │             │    │  (Go + Docker) │
-└─────────────┘    └─────────────┘    └────────────────┘
-```
-
-**S3 Bucket Configuration:**
-- Enable public read access for download URLs (or use pre-signed URLs)
-- Set lifecycle policy to delete files after 1 hour
-- Use unique filenames with UUIDs
-
-## Example Go Handler (Gin) - PDF Merge with S3
-
-```go
-package main
-
-import (
-    "context"
-    "fmt"
-    "os"
-    "os/exec"
-    "github.com/aws/aws-sdk-go-v2/config"
-    "github.com/aws/aws-sdk-go-v2/service/s3"
-    "github.com/gin-gonic/gin"
-    "github.com/google/uuid"
-)
-
-var s3Client *s3.Client
-var bucketName = os.Getenv("S3_BUCKET")
-
-func init() {
-    cfg, _ := config.LoadDefaultConfig(context.TODO())
-    s3Client = s3.NewFromConfig(cfg)
-}
-
-func mergePDF(c *gin.Context) {
-    fileCount := c.PostForm("fileCount")
-    count := 0
-    fmt.Sscanf(fileCount, "%d", &count)
-    
-    var inputFiles []string
-    for i := 0; i < count; i++ {
-        file, _ := c.FormFile(fmt.Sprintf("file%d", i))
-        tempPath := fmt.Sprintf("/tmp/input_%d.pdf", i)
-        c.SaveUploadedFile(file, tempPath)
-        inputFiles = append(inputFiles, tempPath)
-    }
-    
-    // Merge using pdfcpu
-    outputPath := fmt.Sprintf("/tmp/merged_%s.pdf", uuid.New().String())
-    args := append([]string{"merge", outputPath}, inputFiles...)
-    exec.Command("pdfcpu", args...).Run()
-    
-    // Upload to S3
-    outputFile, _ := os.Open(outputPath)
-    defer outputFile.Close()
-    
-    key := fmt.Sprintf("merged-%s.pdf", uuid.New().String())
-    s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
-        Bucket: &bucketName,
-        Key:    &key,
-        Body:   outputFile,
-        ContentType: aws.String("application/pdf"),
-    })
-    
-    // Return download URL
-    downloadUrl := fmt.Sprintf("https://%s.s3.amazonaws.com/%s", bucketName, key)
-    c.JSON(200, gin.H{"downloadUrl": downloadUrl})
-}
-
-func main() {
-    r := gin.Default()
-    r.Use(corsMiddleware())
-    
-    r.GET("/health", func(c *gin.Context) { c.Status(200) })
-    r.POST("/api/convert/excel-to-pdf", excelToPDF)
-    r.POST("/api/pdf/merge", mergePDF)
-    // ... other routes
-    
-    r.Run(":8080")
-}
-```
+See `backend/Dockerfile` for the complete configuration.

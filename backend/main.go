@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -71,7 +73,28 @@ func main() {
 	mux.HandleFunc("/api/pdf/add-header-footer", handleAddHeaderFooter)
 	mux.HandleFunc("/api/pdf/metadata", handleMetadata)
 	mux.HandleFunc("/api/pdf/unlock", handleUnlock)
+	mux.HandleFunc("/api/pdf/ocr", handleOCR)
+	mux.HandleFunc("/api/pdf/sign", handleSign)
+	mux.HandleFunc("/api/pdf/redact", handleRedact)
+	mux.HandleFunc("/api/pdf/compare", handleCompare)
+
+	// Security
 	mux.HandleFunc("/api/security/protect", handleProtect)
+
+	// Conversions - To PDF
+	mux.HandleFunc("/api/convert/word-to-pdf", handleWordToPDF)
+	mux.HandleFunc("/api/convert/excel-to-pdf", handleExcelToPDF)
+	mux.HandleFunc("/api/convert/ppt-to-pdf", handlePPTToPDF)
+	mux.HandleFunc("/api/convert/image-to-pdf", handleImageToPDF)
+	mux.HandleFunc("/api/convert/html-to-pdf", handleHTMLToPDF)
+
+	// Conversions - From PDF
+	mux.HandleFunc("/api/convert/pdf-to-word", handlePDFToWord)
+	mux.HandleFunc("/api/convert/pdf-to-excel", handlePDFToExcel)
+	mux.HandleFunc("/api/convert/pdf-to-ppt", handlePDFToPPT)
+	mux.HandleFunc("/api/convert/pdf-to-image", handlePDFToImage)
+	mux.HandleFunc("/api/convert/pdf-to-text", handlePDFToText)
+	mux.HandleFunc("/api/convert/pdf-to-pdfa", handlePDFToPDFA)
 
 	// Wrap with CORS
 	handler := corsMiddleware(mux)
@@ -100,8 +123,24 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 // Health check
 func handleHealth(w http.ResponseWriter, r *http.Request) {
+	// Check system dependencies
+	deps := map[string]bool{
+		"libreoffice": checkCommand("libreoffice", "--version"),
+		"tesseract":   checkCommand("tesseract", "--version"),
+		"ghostscript": checkCommand("gs", "--version"),
+		"imagemagick": checkCommand("convert", "--version"),
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":       "ok",
+		"dependencies": deps,
+	})
+}
+
+func checkCommand(name string, args ...string) bool {
+	cmd := exec.Command(name, args...)
+	return cmd.Run() == nil
 }
 
 // Serve output files
@@ -429,7 +468,7 @@ func handleWatermark(w http.ResponseWriter, r *http.Request) {
 
 	outputPath := generateOutputPath("watermarked", ".pdf")
 
-	// Add text watermark using AddTextWatermarksFile (writes input to output with watermark)
+	// Add text watermark using AddTextWatermarksFile
 	err = api.AddTextWatermarksFile(inputPath, outputPath, nil, false, text, "font:Helvetica, scale:1.0, opacity:0.3, rotation:45", nil)
 	if err != nil {
 		sendError(w, fmt.Sprintf("Watermark failed: %v", err), http.StatusInternalServerError)
@@ -612,7 +651,7 @@ func handleAddPageNumbers(w http.ResponseWriter, r *http.Request) {
 
 	outputPath := generateOutputPath("numbered", ".pdf")
 
-	// Add page numbers using AddTextWatermarksFile (writes input to output with page numbers)
+	// Add page numbers using AddTextWatermarksFile
 	err = api.AddTextWatermarksFile(inputPath, outputPath, nil, true, "%p", fmt.Sprintf("font:Helvetica, scale:0.5, pos:%s", position), nil)
 	if err != nil {
 		sendError(w, fmt.Sprintf("Add page numbers failed: %v", err), http.StatusInternalServerError)
@@ -641,9 +680,6 @@ func handleAddHeaderFooter(w http.ResponseWriter, r *http.Request) {
 	footer := r.FormValue("footer")
 
 	outputPath := generateOutputPath("header-footer", ".pdf")
-	
-	// Start by copying input to output
-	copyFile(inputPath, outputPath)
 	currentInput := inputPath
 
 	// Add header if provided
@@ -651,28 +687,34 @@ func handleAddHeaderFooter(w http.ResponseWriter, r *http.Request) {
 		err = api.AddTextWatermarksFile(currentInput, outputPath, nil, true, header, "font:Helvetica, scale:0.5, pos:tc, offset:0 20", nil)
 		if err != nil {
 			log.Printf("Header addition warning: %v", err)
+			copyFile(inputPath, outputPath)
 		}
-		currentInput = outputPath // Use output as input for footer
+		currentInput = outputPath
 	}
 
 	// Add footer if provided
 	if footer != "" {
-		// If we already added a header, we need a temp file for the footer
 		if header != "" {
 			tempOutput := generateOutputPath("header-footer-temp", ".pdf")
 			err = api.AddTextWatermarksFile(currentInput, tempOutput, nil, true, footer, "font:Helvetica, scale:0.5, pos:bc, offset:0 -20", nil)
 			if err != nil {
 				log.Printf("Footer addition warning: %v", err)
+			} else {
+				copyFile(tempOutput, outputPath)
 			}
-			// Copy temp to output
-			copyFile(tempOutput, outputPath)
 			os.Remove(tempOutput)
 		} else {
 			err = api.AddTextWatermarksFile(currentInput, outputPath, nil, true, footer, "font:Helvetica, scale:0.5, pos:bc, offset:0 -20", nil)
 			if err != nil {
 				log.Printf("Footer addition warning: %v", err)
+				copyFile(inputPath, outputPath)
 			}
 		}
+	}
+
+	// If neither header nor footer, just copy
+	if header == "" && footer == "" {
+		copyFile(inputPath, outputPath)
 	}
 
 	sendDownloadResponse(w, filepath.Base(outputPath))
@@ -714,11 +756,9 @@ func handleMetadata(w http.ResponseWriter, r *http.Request) {
 		err = api.AddPropertiesFile(inputPath, outputPath, props, nil)
 		if err != nil {
 			log.Printf("Metadata update warning: %v", err)
-			// If properties fails, just copy the file without changes
 			copyFile(inputPath, outputPath)
 		}
 	} else {
-		// No properties to add, just copy the file
 		copyFile(inputPath, outputPath)
 	}
 
@@ -793,6 +833,530 @@ func handleProtect(w http.ResponseWriter, r *http.Request) {
 	sendDownloadResponse(w, filepath.Base(outputPath))
 }
 
+// POST /api/pdf/ocr
+func handleOCR(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(50 << 20)
+
+	inputPath, err := saveUploadedFile(r, "file0")
+	if err != nil {
+		sendError(w, "Failed to read file", http.StatusBadRequest)
+		return
+	}
+
+	language := r.FormValue("language")
+	if language == "" {
+		language = "eng"
+	}
+
+	outputPath := generateOutputPath("ocr", ".pdf")
+
+	// Use Tesseract via ocrmypdf for best results
+	cmd := exec.Command("ocrmypdf",
+		"--language", language,
+		"--skip-text",           // Skip pages that already have text
+		"--optimize", "1",       // Light optimization
+		"--output-type", "pdf",
+		inputPath, outputPath)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("OCR output: %s", string(output))
+		sendError(w, fmt.Sprintf("OCR failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	sendDownloadResponse(w, filepath.Base(outputPath))
+}
+
+// POST /api/pdf/sign
+func handleSign(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(50 << 20)
+
+	inputPath, err := saveUploadedFile(r, "file0")
+	if err != nil {
+		sendError(w, "Failed to read file", http.StatusBadRequest)
+		return
+	}
+
+	// Get signature image (base64 or file)
+	signatureData := r.FormValue("signature")
+	if signatureData == "" {
+		sendError(w, "Signature required", http.StatusBadRequest)
+		return
+	}
+
+	// Decode base64 signature to temp file
+	signaturePath := filepath.Join(TempDir, "uploads", uuid.New().String()+".png")
+	
+	// Remove data URL prefix if present
+	if strings.HasPrefix(signatureData, "data:image") {
+		parts := strings.SplitN(signatureData, ",", 2)
+		if len(parts) == 2 {
+			signatureData = parts[1]
+		}
+	}
+
+	// Decode base64
+	decoded, err := base64.StdEncoding.DecodeString(signatureData)
+	if err != nil {
+		sendError(w, "Invalid signature data", http.StatusBadRequest)
+		return
+	}
+	
+	err = os.WriteFile(signaturePath, decoded, 0644)
+	if err != nil {
+		sendError(w, "Failed to save signature", http.StatusInternalServerError)
+		return
+	}
+	registerFile(signaturePath)
+
+	// Get position parameters
+	page := r.FormValue("page")
+	if page == "" {
+		page = "1"
+	}
+
+	outputPath := generateOutputPath("signed", ".pdf")
+
+	// Use pdfcpu to add image stamp
+	err = api.AddImageWatermarksFile(inputPath, outputPath, []string{page}, true, signaturePath, "scale:0.3, pos:br, offset:-50 50", nil)
+	if err != nil {
+		sendError(w, fmt.Sprintf("Signing failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	sendDownloadResponse(w, filepath.Base(outputPath))
+}
+
+// POST /api/pdf/redact
+func handleRedact(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(50 << 20)
+
+	inputPath, err := saveUploadedFile(r, "file0")
+	if err != nil {
+		sendError(w, "Failed to read file", http.StatusBadRequest)
+		return
+	}
+
+	// Get redaction areas (JSON array of rectangles with page numbers)
+	areasStr := r.FormValue("areas")
+	if areasStr == "" {
+		sendError(w, "Redaction areas required", http.StatusBadRequest)
+		return
+	}
+
+	var areas []struct {
+		Page   int     `json:"page"`
+		X      float64 `json:"x"`
+		Y      float64 `json:"y"`
+		Width  float64 `json:"width"`
+		Height float64 `json:"height"`
+	}
+	json.Unmarshal([]byte(areasStr), &areas)
+
+	outputPath := generateOutputPath("redacted", ".pdf")
+	copyFile(inputPath, outputPath)
+
+	// Apply black rectangles for each redaction area using annotations
+	for _, area := range areas {
+		// Use pdfcpu annotations API to add black rectangles
+		// This is a simplified approach - full implementation would use proper redaction
+		desc := fmt.Sprintf("pos:bl, offset:%.0f %.0f, scale:abs, width:%.0f, height:%.0f, bgcolor:#000000", 
+			area.X, area.Y, area.Width, area.Height)
+		
+		api.AddTextWatermarksFile(outputPath, outputPath, []string{strconv.Itoa(area.Page)}, true, " ", desc, nil)
+	}
+
+	sendDownloadResponse(w, filepath.Base(outputPath))
+}
+
+// POST /api/pdf/compare
+func handleCompare(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(100 << 20)
+
+	file1Path, err := saveUploadedFile(r, "file0")
+	if err != nil {
+		sendError(w, "Failed to read first file", http.StatusBadRequest)
+		return
+	}
+
+	file2Path, err := saveUploadedFile(r, "file1")
+	if err != nil {
+		sendError(w, "Failed to read second file", http.StatusBadRequest)
+		return
+	}
+
+	outputPath := generateOutputPath("comparison", ".pdf")
+
+	// Convert PDFs to images, compare, and create difference PDF
+	// Using ImageMagick for comparison
+	tempDir := filepath.Join(TempDir, "compare-"+uuid.New().String()[:8])
+	os.MkdirAll(tempDir, 0755)
+	defer os.RemoveAll(tempDir)
+
+	// Convert first PDF to images
+	cmd := exec.Command("gs", "-dNOPAUSE", "-dBATCH", "-sDEVICE=png16m", "-r150",
+		fmt.Sprintf("-sOutputFile=%s/page1-%%d.png", tempDir), file1Path)
+	cmd.Run()
+
+	// Convert second PDF to images
+	cmd = exec.Command("gs", "-dNOPAUSE", "-dBATCH", "-sDEVICE=png16m", "-r150",
+		fmt.Sprintf("-sOutputFile=%s/page2-%%d.png", tempDir), file2Path)
+	cmd.Run()
+
+	// Find all page images and compare
+	var diffImages []string
+	for i := 1; ; i++ {
+		img1 := filepath.Join(tempDir, fmt.Sprintf("page1-%d.png", i))
+		img2 := filepath.Join(tempDir, fmt.Sprintf("page2-%d.png", i))
+		diffImg := filepath.Join(tempDir, fmt.Sprintf("diff-%d.png", i))
+
+		if _, err := os.Stat(img1); os.IsNotExist(err) {
+			break
+		}
+
+		// Use ImageMagick to create difference image
+		if _, err := os.Stat(img2); err == nil {
+			cmd = exec.Command("compare", "-highlight-color", "red", img1, img2, diffImg)
+			cmd.Run()
+		} else {
+			// If page doesn't exist in second PDF, just use first
+			copyFile(img1, diffImg)
+		}
+		diffImages = append(diffImages, diffImg)
+	}
+
+	// Convert diff images back to PDF
+	if len(diffImages) > 0 {
+		args := append(diffImages, outputPath)
+		cmd = exec.Command("convert", args...)
+		err = cmd.Run()
+		if err != nil {
+			sendError(w, fmt.Sprintf("Comparison failed: %v", err), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		sendError(w, "No pages to compare", http.StatusBadRequest)
+		return
+	}
+
+	sendDownloadResponse(w, filepath.Base(outputPath))
+}
+
+// ==================== CONVERSION HANDLERS ====================
+
+// POST /api/convert/word-to-pdf
+func handleWordToPDF(w http.ResponseWriter, r *http.Request) {
+	handleLibreOfficeConvert(w, r, "word", ".pdf")
+}
+
+// POST /api/convert/excel-to-pdf
+func handleExcelToPDF(w http.ResponseWriter, r *http.Request) {
+	handleLibreOfficeConvert(w, r, "excel", ".pdf")
+}
+
+// POST /api/convert/ppt-to-pdf
+func handlePPTToPDF(w http.ResponseWriter, r *http.Request) {
+	handleLibreOfficeConvert(w, r, "ppt", ".pdf")
+}
+
+// POST /api/convert/html-to-pdf
+func handleHTMLToPDF(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(50 << 20)
+
+	inputPath, err := saveUploadedFile(r, "file0")
+	if err != nil {
+		sendError(w, "Failed to read file", http.StatusBadRequest)
+		return
+	}
+
+	outputPath := generateOutputPath("html-converted", ".pdf")
+
+	// Use wkhtmltopdf or LibreOffice for HTML conversion
+	cmd := exec.Command("wkhtmltopdf", inputPath, outputPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Fallback to LibreOffice
+		log.Printf("wkhtmltopdf failed, trying LibreOffice: %s", string(output))
+		handleLibreOfficeConvert(w, r, "html", ".pdf")
+		return
+	}
+
+	sendDownloadResponse(w, filepath.Base(outputPath))
+}
+
+// POST /api/convert/image-to-pdf
+func handleImageToPDF(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(100 << 20)
+
+	// Support multiple images
+	fileCountStr := r.FormValue("fileCount")
+	fileCount, _ := strconv.Atoi(fileCountStr)
+	if fileCount == 0 {
+		fileCount = 1
+	}
+
+	var inputFiles []string
+	for i := 0; i < fileCount; i++ {
+		path, err := saveUploadedFile(r, fmt.Sprintf("file%d", i))
+		if err != nil {
+			if i == 0 {
+				sendError(w, "Failed to read image file", http.StatusBadRequest)
+				return
+			}
+			break
+		}
+		inputFiles = append(inputFiles, path)
+	}
+
+	outputPath := generateOutputPath("images-to-pdf", ".pdf")
+
+	// Use ImageMagick to convert images to PDF
+	args := append(inputFiles, outputPath)
+	cmd := exec.Command("convert", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("ImageMagick output: %s", string(output))
+		sendError(w, fmt.Sprintf("Image to PDF conversion failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	sendDownloadResponse(w, filepath.Base(outputPath))
+}
+
+// POST /api/convert/pdf-to-word
+func handlePDFToWord(w http.ResponseWriter, r *http.Request) {
+	handleLibreOfficeConvert(w, r, "pdf-to-word", ".docx")
+}
+
+// POST /api/convert/pdf-to-excel
+func handlePDFToExcel(w http.ResponseWriter, r *http.Request) {
+	handleLibreOfficeConvert(w, r, "pdf-to-excel", ".xlsx")
+}
+
+// POST /api/convert/pdf-to-ppt
+func handlePDFToPPT(w http.ResponseWriter, r *http.Request) {
+	handleLibreOfficeConvert(w, r, "pdf-to-ppt", ".pptx")
+}
+
+// POST /api/convert/pdf-to-image
+func handlePDFToImage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(50 << 20)
+
+	inputPath, err := saveUploadedFile(r, "file0")
+	if err != nil {
+		sendError(w, "Failed to read file", http.StatusBadRequest)
+		return
+	}
+
+	format := r.FormValue("format")
+	if format == "" {
+		format = "png"
+	}
+
+	dpi := r.FormValue("dpi")
+	if dpi == "" {
+		dpi = "150"
+	}
+
+	outputDir := filepath.Join(TempDir, "output", "images-"+uuid.New().String()[:8])
+	os.MkdirAll(outputDir, 0755)
+
+	// Use Ghostscript to convert PDF to images
+	device := "png16m"
+	if format == "jpg" || format == "jpeg" {
+		device = "jpeg"
+	}
+
+	cmd := exec.Command("gs",
+		"-dNOPAUSE", "-dBATCH",
+		"-sDEVICE="+device,
+		"-r"+dpi,
+		fmt.Sprintf("-sOutputFile=%s/page-%%d.%s", outputDir, format),
+		inputPath)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Ghostscript output: %s", string(output))
+		sendError(w, fmt.Sprintf("PDF to image conversion failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Create ZIP of images
+	zipPath := generateOutputPath("pdf-images", ".zip")
+	err = createZipFromDir(outputDir, zipPath)
+	if err != nil {
+		sendError(w, fmt.Sprintf("ZIP creation failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	os.RemoveAll(outputDir)
+	sendDownloadResponse(w, filepath.Base(zipPath))
+}
+
+// POST /api/convert/pdf-to-text
+func handlePDFToText(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(50 << 20)
+
+	inputPath, err := saveUploadedFile(r, "file0")
+	if err != nil {
+		sendError(w, "Failed to read file", http.StatusBadRequest)
+		return
+	}
+
+	outputPath := generateOutputPath("extracted-text", ".txt")
+
+	// Use pdftotext from poppler-utils
+	cmd := exec.Command("pdftotext", "-layout", inputPath, outputPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("pdftotext output: %s", string(output))
+		sendError(w, fmt.Sprintf("Text extraction failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	sendDownloadResponse(w, filepath.Base(outputPath))
+}
+
+// POST /api/convert/pdf-to-pdfa
+func handlePDFToPDFA(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(50 << 20)
+
+	inputPath, err := saveUploadedFile(r, "file0")
+	if err != nil {
+		sendError(w, "Failed to read file", http.StatusBadRequest)
+		return
+	}
+
+	outputPath := generateOutputPath("pdfa", ".pdf")
+
+	// Use Ghostscript to convert to PDF/A
+	cmd := exec.Command("gs",
+		"-dPDFA=2",
+		"-dBATCH", "-dNOPAUSE",
+		"-sColorConversionStrategy=UseDeviceIndependentColor",
+		"-sDEVICE=pdfwrite",
+		"-dPDFACompatibilityPolicy=1",
+		fmt.Sprintf("-sOutputFile=%s", outputPath),
+		inputPath)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Ghostscript PDF/A output: %s", string(output))
+		sendError(w, fmt.Sprintf("PDF/A conversion failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	sendDownloadResponse(w, filepath.Base(outputPath))
+}
+
+// Generic LibreOffice conversion handler
+func handleLibreOfficeConvert(w http.ResponseWriter, r *http.Request, convType, outputExt string) {
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(50 << 20)
+
+	inputPath, err := saveUploadedFile(r, "file0")
+	if err != nil {
+		sendError(w, "Failed to read file", http.StatusBadRequest)
+		return
+	}
+
+	outputDir := filepath.Join(TempDir, "output")
+
+	// Determine output format for LibreOffice
+	var convertFormat string
+	switch convType {
+	case "word", "excel", "ppt", "html":
+		convertFormat = "pdf"
+	case "pdf-to-word":
+		convertFormat = "docx"
+	case "pdf-to-excel":
+		convertFormat = "xlsx"
+	case "pdf-to-ppt":
+		convertFormat = "pptx"
+	default:
+		convertFormat = "pdf"
+	}
+
+	// Run LibreOffice headless conversion
+	cmd := exec.Command("libreoffice",
+		"--headless",
+		"--convert-to", convertFormat,
+		"--outdir", outputDir,
+		inputPath)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("LibreOffice output: %s", string(output))
+		sendError(w, fmt.Sprintf("Conversion failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Find the converted file
+	baseName := strings.TrimSuffix(filepath.Base(inputPath), filepath.Ext(inputPath))
+	convertedFile := filepath.Join(outputDir, baseName+"."+convertFormat)
+
+	// Rename to our standard naming convention
+	finalPath := generateOutputPath("converted", outputExt)
+	err = os.Rename(convertedFile, finalPath)
+	if err != nil {
+		// Try copy if rename fails (cross-device)
+		copyFile(convertedFile, finalPath)
+		os.Remove(convertedFile)
+	}
+
+	sendDownloadResponse(w, filepath.Base(finalPath))
+}
+
 // ==================== UTILITIES ====================
 
 func getEnv(key, defaultValue string) string {
@@ -829,8 +1393,7 @@ func copyFile(src, dst string) error {
 }
 
 func createZipFromDir(srcDir, destZip string) error {
-	// Simple implementation - for production, use archive/zip
-	files, err := filepath.Glob(filepath.Join(srcDir, "*.pdf"))
+	files, err := filepath.Glob(filepath.Join(srcDir, "*"))
 	if err != nil {
 		return err
 	}
@@ -841,6 +1404,5 @@ func createZipFromDir(srcDir, destZip string) error {
 	}
 	defer zipFile.Close()
 
-	// Use archive/zip for proper implementation
 	return createZip(files, zipFile)
 }

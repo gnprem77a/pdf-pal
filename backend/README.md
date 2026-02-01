@@ -1,6 +1,6 @@
 # PDF Processing Backend
 
-A Go-based PDF processing API that handles all PDF operations server-side.
+A comprehensive Go-based PDF processing API with full document conversion support.
 
 ## Quick Start
 
@@ -8,15 +8,54 @@ A Go-based PDF processing API that handles all PDF operations server-side.
 # Install dependencies
 go mod tidy
 
-# Run the server
+# Run the server (requires system dependencies)
 go run .
 
 # Server starts on http://localhost:8080
 ```
 
-## Configuration
+## System Dependencies
 
-Environment variables:
+For full functionality, install these system packages:
+
+### Ubuntu/Debian
+```bash
+sudo apt-get install -y \
+    libreoffice \
+    tesseract-ocr tesseract-ocr-eng \
+    ocrmypdf \
+    ghostscript \
+    imagemagick \
+    poppler-utils \
+    wkhtmltopdf
+```
+
+### Alpine
+```bash
+apk add libreoffice tesseract-ocr ghostscript imagemagick poppler-utils
+```
+
+### macOS
+```bash
+brew install libreoffice tesseract ghostscript imagemagick poppler
+```
+
+## Docker (Recommended)
+
+Docker is the recommended deployment method as it includes all dependencies:
+
+```bash
+# Build
+docker build -t pdf-backend .
+
+# Run
+docker run -p 8080:8080 \
+  -e HOST=https://api.yourdomain.com \
+  -e FILE_TTL_MINUTES=5 \
+  pdf-backend
+```
+
+## Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -52,44 +91,88 @@ All endpoints accept `multipart/form-data` and return:
 | `/api/pdf/add-header-footer` | POST | `file0`, `header`, `footer` |
 | `/api/pdf/metadata` | POST | `file0`, `title`, `author`, `subject`, `keywords` |
 | `/api/pdf/unlock` | POST | `file0`, `password` |
+| `/api/pdf/ocr` | POST | `file0`, `language` (eng, fra, deu, etc.) |
+| `/api/pdf/sign` | POST | `file0`, `signature` (base64 image), `page` |
+| `/api/pdf/redact` | POST | `file0`, `areas` (JSON array of rectangles) |
+| `/api/pdf/compare` | POST | `file0`, `file1` |
+
+### Security
+
+| Endpoint | Method | Parameters |
+|----------|--------|------------|
 | `/api/security/protect` | POST | `file0`, `password` |
+
+### Conversions - To PDF
+
+| Endpoint | Method | Input Types |
+|----------|--------|-------------|
+| `/api/convert/word-to-pdf` | POST | .doc, .docx |
+| `/api/convert/excel-to-pdf` | POST | .xls, .xlsx |
+| `/api/convert/ppt-to-pdf` | POST | .ppt, .pptx |
+| `/api/convert/image-to-pdf` | POST | .jpg, .png, .gif, .bmp |
+| `/api/convert/html-to-pdf` | POST | .html |
+
+### Conversions - From PDF
+
+| Endpoint | Method | Output Type |
+|----------|--------|-------------|
+| `/api/convert/pdf-to-word` | POST | .docx |
+| `/api/convert/pdf-to-excel` | POST | .xlsx |
+| `/api/convert/pdf-to-ppt` | POST | .pptx |
+| `/api/convert/pdf-to-image` | POST | .zip (PNG/JPG images) |
+| `/api/convert/pdf-to-text` | POST | .txt |
+| `/api/convert/pdf-to-pdfa` | POST | PDF/A-2 |
 
 ### Other
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/health` | GET | Health check |
+| `/health` | GET | Health check with dependency status |
 | `/files/{filename}` | GET | Download processed files |
 
-## Docker
+## Health Check Response
 
-```bash
-# Build
-docker build -t pdf-backend .
-
-# Run
-docker run -p 8080:8080 \
-  -e HOST=https://api.yourdomain.com \
-  -e FILE_TTL_MINUTES=5 \
-  pdf-backend
+```json
+{
+  "status": "ok",
+  "dependencies": {
+    "libreoffice": true,
+    "tesseract": true,
+    "ghostscript": true,
+    "imagemagick": true
+  }
+}
 ```
 
 ## AWS Deployment
 
-### EC2
+### EC2 (Recommended for heavy workloads)
 
-1. Build the Docker image
-2. Push to ECR
-3. Deploy on EC2 with Docker
-4. Configure ALB for HTTPS
-5. Set `HOST` to your domain
+1. Launch an EC2 instance (t3.medium or larger recommended)
+2. Install Docker: `sudo yum install -y docker && sudo systemctl start docker`
+3. Build and push to ECR
+4. Run with Docker
+5. Configure ALB for HTTPS
+6. Set `HOST` to your domain
 
-### Lambda + API Gateway
+### ECS/Fargate
 
-For serverless deployment, consider using AWS Lambda with API Gateway. You'll need to:
-1. Modify the handler signatures for Lambda
-2. Use S3 for file storage instead of local temp
-3. Set appropriate timeout (15min max)
+1. Push Docker image to ECR
+2. Create ECS task definition with:
+   - Memory: 2GB minimum (LibreOffice needs memory)
+   - CPU: 1 vCPU minimum
+   - Timeout: 5 minutes for large files
+3. Create ECS service with ALB
+4. Configure environment variables
+
+### Lambda (Limited)
+
+⚠️ Lambda has constraints that make it challenging for this backend:
+- 15-minute timeout (document conversions can be slow)
+- 10GB ephemeral storage limit
+- Cold starts with LibreOffice are slow (~30s)
+
+Consider Lambda only for simple PDF operations, not document conversions.
 
 ## Privacy & Security
 
@@ -97,11 +180,34 @@ For serverless deployment, consider using AWS Lambda with API Gateway. You'll ne
 - Background cleanup runs every minute
 - No user data is persisted
 - CORS is configured for cross-origin requests
+- Non-root user in Docker for security
 
 ## Production Checklist
 
 - [ ] Set `HOST` to your public HTTPS URL
 - [ ] Configure HTTPS (via ALB, nginx, or similar)
-- [ ] Adjust `FILE_TTL_MINUTES` as needed
-- [ ] Set up monitoring/logging
-- [ ] Consider S3 for file storage in serverless setup
+- [ ] Adjust `FILE_TTL_MINUTES` as needed (5-10 recommended)
+- [ ] Set up monitoring/logging (CloudWatch, DataDog, etc.)
+- [ ] Configure auto-scaling for ECS
+- [ ] Set up health check alarms
+- [ ] Configure S3 for file storage (optional, for HA)
+- [ ] Enable request logging
+
+## Troubleshooting
+
+### LibreOffice fails to convert
+- Ensure LibreOffice is installed: `libreoffice --version`
+- Check available memory (LibreOffice needs 1GB+)
+- Verify fonts are installed
+
+### OCR produces empty text
+- Install language packs: `tesseract-ocr-[lang]`
+- Check if input PDF has images (not text)
+
+### ImageMagick PDF errors
+- Update ImageMagick policy: Edit `/etc/ImageMagick-6/policy.xml`
+- Change `rights="none" pattern="PDF"` to `rights="read|write" pattern="PDF"`
+
+### Ghostscript errors
+- Ensure Ghostscript is installed: `gs --version`
+- Check for corrupted input PDFs
