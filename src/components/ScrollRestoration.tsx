@@ -1,43 +1,48 @@
-import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLayoutEffect } from "react";
+import { useLocation, useNavigationType } from "react-router-dom";
 
-// Store scroll positions for each route
-const scrollPositions: Record<string, number> = {};
+// Persist scroll positions by URL so Back/Forward reliably restores the last
+// position even if React Router creates a new `location.key`.
+const scrollPositions = new Map<string, number>();
+
+const getScrollKey = (loc: { pathname: string; search: string; hash: string }) =>
+  `${loc.pathname}${loc.search}${loc.hash}`;
 
 const ScrollRestoration = () => {
   const location = useLocation();
+  const navigationType = useNavigationType(); // POP when using back/forward
 
-  useEffect(() => {
-    // Save current scroll position before navigating away
-    const saveScrollPosition = () => {
-      scrollPositions[location.key] = window.scrollY;
+  useLayoutEffect(() => {
+    const key = getScrollKey(location);
+
+    // Save position for the current page on cleanup (i.e., before we leave it)
+    return () => {
+      scrollPositions.set(key, window.scrollY);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, location.search, location.hash]);
 
-    // Restore scroll position or scroll to top for new pages
-    const restoreScrollPosition = () => {
-      const savedPosition = scrollPositions[location.key];
-      
-      if (savedPosition !== undefined) {
-        // Restore previous position (going back)
-        window.scrollTo(0, savedPosition);
-      } else {
-        // New page, scroll to top
+  useLayoutEffect(() => {
+    const key = getScrollKey(location);
+    const savedY = scrollPositions.get(key);
+
+    // Wait for layout/paint; some pages change height after mount.
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        if (navigationType === "POP" && typeof savedY === "number") {
+          window.scrollTo(0, savedY);
+          return;
+        }
         window.scrollTo(0, 0);
-      }
-    };
-
-    // Small delay to ensure DOM is ready
-    const timeoutId = setTimeout(restoreScrollPosition, 0);
-
-    // Save position before leaving
-    window.addEventListener("beforeunload", saveScrollPosition);
+      });
+    });
 
     return () => {
-      clearTimeout(timeoutId);
-      saveScrollPosition();
-      window.removeEventListener("beforeunload", saveScrollPosition);
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
     };
-  }, [location.key]);
+  }, [location.pathname, location.search, location.hash, navigationType]);
 
   return null;
 };
