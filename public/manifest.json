@@ -1,7 +1,7 @@
 {
-  "name": "PDF Tools",
-  "short_name": "PDFTools",
-  "description": "Free online PDF tools - merge, split, compress, convert, and more",
+  "name": "InstantPDF",
+  "short_name": "InstantPDF",
+  "description": "Free online PDF tools - merge, split, compress, convert, and more. Instant processing.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",
