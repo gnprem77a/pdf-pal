@@ -13,6 +13,16 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
+  // pdfjs-dist v5 uses modern JS features (incl. top-level await in its build).
+  // Target ES2022 to ensure both dev optimizeDeps and production builds work.
+  build: {
+    target: "es2022",
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: "es2022",
+    },
+  },
   plugins: [
     react(),
     mode === "development" && componentTagger(),
