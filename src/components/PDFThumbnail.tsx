@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { pdfjsLib } from "@/lib/pdfjs";
 import { Loader2, FileWarning } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,12 +20,24 @@ const PDFThumbnail = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [pageCount, setPageCount] = useState(0);
+  const [canvasMounted, setCanvasMounted] = useState(false);
+
+  // Track when canvas mounts
+  const setCanvasRef = useCallback((node: HTMLCanvasElement | null) => {
+    (canvasRef as React.MutableRefObject<HTMLCanvasElement | null>).current = node;
+    if (node) {
+      setCanvasMounted(true);
+    }
+  }, []);
 
   useEffect(() => {
+    if (!canvasMounted) return;
+
     let cancelled = false;
 
     const renderThumbnail = async () => {
-      if (!canvasRef.current) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
       setLoading(true);
       setError(false);
@@ -45,7 +57,6 @@ const PDFThumbnail = ({
         const scale = width / viewport.width;
         const scaledViewport = page.getViewport({ scale });
 
-        const canvas = canvasRef.current;
         const context = canvas.getContext("2d");
 
         if (!context || cancelled) return;
@@ -74,7 +85,7 @@ const PDFThumbnail = ({
     return () => {
       cancelled = true;
     };
-  }, [file, width]);
+  }, [file, width, canvasMounted]);
 
   return (
     <div
@@ -104,7 +115,7 @@ const PDFThumbnail = ({
       )}
 
       <canvas
-        ref={canvasRef}
+        ref={setCanvasRef}
         className={cn("block", loading || error ? "hidden" : "")}
       />
 
