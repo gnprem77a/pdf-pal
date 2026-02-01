@@ -50,6 +50,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-freefont-ttf \
     # CA certificates for HTTPS
     ca-certificates \
+    # curl for healthcheck
+    curl \
     # Cleanup
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
