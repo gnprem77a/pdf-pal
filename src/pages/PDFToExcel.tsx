@@ -1,22 +1,79 @@
-import { useState, useEffect } from "react";
-import { Sheet, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { Sheet } from "lucide-react";
 import ToolLayout from "@/components/ToolLayout";
 import FileUpload from "@/components/FileUpload";
 import { Button } from "@/components/ui/button";
 import ProcessingStatus from "@/components/ProcessingStatus";
-import { convertPdfToExcel, checkBackendHealth } from "@/lib/api-service";
-import { API_CONFIG } from "@/lib/api-config";
+import * as XLSX from "xlsx";
+import * as pdfjsLib from "pdfjs-dist";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const PDFToExcel = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
-  const [backendConnected, setBackendConnected] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    checkBackendHealth().then(setBackendConnected);
-  }, []);
+  const extractTextFromPDF = async (file: File): Promise<string[][]> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const allRows: string[][] = [];
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      
+      // Group text items by their Y position to form rows
+      const items = textContent.items as any[];
+      const rowMap = new Map<number, { x: number; text: string }[]>();
+
+      for (const item of items) {
+        const y = Math.round(item.transform[5]); // Y position
+        const x = Math.round(item.transform[4]); // X position
+        
+        if (!rowMap.has(y)) {
+          rowMap.set(y, []);
+        }
+        rowMap.get(y)!.push({ x, text: item.str });
+      }
+
+      // Sort rows by Y (descending - PDF coordinates) and cells by X
+      const sortedYs = Array.from(rowMap.keys()).sort((a, b) => b - a);
+      
+      for (const y of sortedYs) {
+        const cells = rowMap.get(y)!;
+        cells.sort((a, b) => a.x - b.x);
+        
+        // Combine cells that are close together
+        const row: string[] = [];
+        let currentCell = "";
+        let lastX = -1000;
+
+        for (const cell of cells) {
+          if (cell.x - lastX > 50 && currentCell) {
+            row.push(currentCell.trim());
+            currentCell = cell.text;
+          } else {
+            currentCell += " " + cell.text;
+          }
+          lastX = cell.x + cell.text.length * 5;
+        }
+        
+        if (currentCell.trim()) {
+          row.push(currentCell.trim());
+        }
+        
+        if (row.length > 0) {
+          allRows.push(row);
+        }
+      }
+
+      setProgress(20 + (pageNum / pdf.numPages) * 50);
+    }
+
+    return allRows;
+  };
 
   const handleConvert = async () => {
     if (files.length === 0) return;
@@ -26,18 +83,41 @@ const PDFToExcel = () => {
     setErrorMessage("");
 
     try {
-      setProgress(30);
-      const result = await convertPdfToExcel(files[0]);
-      
-      if (!result.success || !result.data) {
-        throw new Error(result.error || "Conversion failed");
+      setProgress(10);
+      const rows = await extractTextFromPDF(files[0]);
+      setProgress(70);
+
+      if (rows.length === 0) {
+        throw new Error("No text content found in PDF");
       }
 
-      setProgress(80);
-      const originalName = files[0].name.replace(".pdf", "");
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.aoa_to_sheet(rows);
       
-      // Create download link
-      const url = URL.createObjectURL(result.data);
+      // Auto-size columns
+      const colWidths = rows.reduce((widths: number[], row) => {
+        row.forEach((cell, i) => {
+          const len = String(cell).length;
+          widths[i] = Math.max(widths[i] || 10, Math.min(len + 2, 50));
+        });
+        return widths;
+      }, []);
+      
+      worksheet["!cols"] = colWidths.map(w => ({ wch: w }));
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+      setProgress(85);
+
+      // Generate file
+      const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([excelBuffer], { 
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
+      });
+
+      // Download
+      const originalName = files[0].name.replace(".pdf", "");
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `${originalName}.xlsx`;
@@ -67,46 +147,10 @@ const PDFToExcel = () => {
       icon={Sheet}
       color="compress"
     >
-      {/* Backend status banner */}
-      <div className={`mb-4 rounded-lg border p-4 ${
-        backendConnected === false 
-          ? "border-yellow-500/30 bg-yellow-500/10" 
-          : backendConnected === true 
-          ? "border-green-500/30 bg-green-500/10"
-          : "border-muted bg-muted/50"
-      }`}>
-        <div className="flex items-start gap-3">
-          <AlertCircle className={`mt-0.5 h-5 w-5 ${
-            backendConnected === false 
-              ? "text-yellow-600" 
-              : backendConnected === true 
-              ? "text-green-600"
-              : "text-muted-foreground"
-          }`} />
-          <div className="text-sm">
-            {backendConnected === null && (
-              <p className="text-muted-foreground">Checking backend connection...</p>
-            )}
-            {backendConnected === false && (
-              <>
-                <p className="font-medium text-yellow-700 dark:text-yellow-300">
-                  Backend not connected
-                </p>
-                <p className="text-yellow-600 dark:text-yellow-400">
-                  Your Go backend at <code className="rounded bg-yellow-200/50 px-1">{API_CONFIG.baseUrl}</code> is not responding.
-                </p>
-                <p className="mt-1 text-yellow-600 dark:text-yellow-400">
-                  Set <code className="rounded bg-yellow-200/50 px-1">VITE_API_URL</code> environment variable to your API URL.
-                </p>
-              </>
-            )}
-            {backendConnected === true && (
-              <p className="text-green-700 dark:text-green-300">
-                ✓ Connected to backend at <code className="rounded bg-green-200/50 px-1">{API_CONFIG.baseUrl}</code>
-              </p>
-            )}
-          </div>
-        </div>
+      <div className="mb-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-4">
+        <p className="text-sm text-blue-700 dark:text-blue-300">
+          <strong>Client-side extraction:</strong> Extracts text and attempts to detect table structure. Works best with simple, text-based PDFs.
+        </p>
       </div>
 
       {status === "idle" || status === "error" ? (
@@ -126,19 +170,14 @@ const PDFToExcel = () => {
 
           {files.length > 0 && (
             <div className="mt-6 flex justify-center">
-              <Button 
-                size="lg" 
-                onClick={handleConvert} 
-                className="px-8"
-                disabled={backendConnected === false}
-              >
+              <Button size="lg" onClick={handleConvert} className="px-8">
                 Convert to Excel
               </Button>
             </div>
           )}
         </>
       ) : status === "processing" ? (
-        <ProcessingStatus status={status} progress={progress} message="Converting PDF to Excel..." />
+        <ProcessingStatus status={status} progress={progress} message="Extracting data from PDF..." />
       ) : (
         <>
           <ProcessingStatus status={status} progress={progress} message="Your Excel file has been downloaded!" />
