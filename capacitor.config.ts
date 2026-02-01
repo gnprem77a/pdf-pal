@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'instantpdf',
   webDir: 'dist',
   server: {
-    url: 'https://c0c9173c-c136-4f46-b42c-a64751647963.lovableproject.com?forceHideBadge=true',
+    url: 'https://instantpdf.lovable.app',
     cleartext: true
   }
 };
