@@ -8,6 +8,18 @@ const scrollPositions = new Map<string, number>();
 const getScrollKey = (loc: { pathname: string; search: string; hash: string }) =>
   `${loc.pathname}${loc.search}${loc.hash}`;
 
+const scrollToInstant = (top: number) => {
+  // If the app/theme sets CSS `scroll-behavior: smooth`, programmatic scrolls
+  // may animate. Temporarily force auto to avoid visible scrolling.
+  const root = document.documentElement;
+  const prev = root.style.scrollBehavior;
+  root.style.scrollBehavior = "auto";
+  window.scrollTo({ top, left: 0, behavior: "auto" });
+  requestAnimationFrame(() => {
+    root.style.scrollBehavior = prev;
+  });
+};
+
 const ScrollRestoration = () => {
   const location = useLocation();
   const navigationType = useNavigationType(); // POP when using back/forward
@@ -31,10 +43,10 @@ const ScrollRestoration = () => {
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
         if (navigationType === "POP" && typeof savedY === "number") {
-          window.scrollTo(0, savedY);
+          scrollToInstant(savedY);
           return;
         }
-        window.scrollTo(0, 0);
+        scrollToInstant(0);
       });
     });
 
