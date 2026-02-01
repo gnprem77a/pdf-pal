@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
 // Config
@@ -427,16 +428,9 @@ func handleWatermark(w http.ResponseWriter, r *http.Request) {
 	}
 
 	outputPath := generateOutputPath("watermarked", ".pdf")
-	copyFile(inputPath, outputPath)
 
-	// Create text watermark
-	wm, err := api.TextWatermark(text, "font:Helvetica, scale:1.0, opacity:0.3, rotation:45", true, false, model.POINTS)
-	if err != nil {
-		sendError(w, fmt.Sprintf("Watermark creation failed: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	err = api.AddWatermarksFile(outputPath, "", nil, wm, nil)
+	// Add text watermark using AddTextWatermarksFile (writes input to output with watermark)
+	err = api.AddTextWatermarksFile(inputPath, outputPath, nil, false, text, "font:Helvetica, scale:1.0, opacity:0.3, rotation:45", nil)
 	if err != nil {
 		sendError(w, fmt.Sprintf("Watermark failed: %v", err), http.StatusInternalServerError)
 		return
@@ -553,7 +547,7 @@ func handleCrop(w http.ResponseWriter, r *http.Request) {
 
 	// Create crop box
 	boxDef := fmt.Sprintf("[%.2f %.2f %.2f %.2f]", left, bottom, right, top)
-	box, err := api.Box(boxDef, model.POINTS)
+	box, err := api.Box(boxDef, types.POINTS)
 	if err != nil {
 		sendError(w, fmt.Sprintf("Invalid crop dimensions: %v", err), http.StatusBadRequest)
 		return
@@ -617,16 +611,9 @@ func handleAddPageNumbers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	outputPath := generateOutputPath("numbered", ".pdf")
-	copyFile(inputPath, outputPath)
 
-	// Add page numbers using stamps
-	wm, err := api.TextWatermark("%p", fmt.Sprintf("font:Helvetica, scale:0.5, pos:%s", position), true, false, model.POINTS)
-	if err != nil {
-		sendError(w, fmt.Sprintf("Page number stamp failed: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	err = api.AddWatermarksFile(outputPath, "", nil, wm, nil)
+	// Add page numbers using AddTextWatermarksFile (writes input to output with page numbers)
+	err = api.AddTextWatermarksFile(inputPath, outputPath, nil, true, "%p", fmt.Sprintf("font:Helvetica, scale:0.5, pos:%s", position), nil)
 	if err != nil {
 		sendError(w, fmt.Sprintf("Add page numbers failed: %v", err), http.StatusInternalServerError)
 		return
@@ -654,21 +641,37 @@ func handleAddHeaderFooter(w http.ResponseWriter, r *http.Request) {
 	footer := r.FormValue("footer")
 
 	outputPath := generateOutputPath("header-footer", ".pdf")
+	
+	// Start by copying input to output
 	copyFile(inputPath, outputPath)
+	currentInput := inputPath
 
 	// Add header if provided
 	if header != "" {
-		wm, err := api.TextWatermark(header, "font:Helvetica, scale:0.5, pos:tc, offset:0 20", true, false, model.POINTS)
-		if err == nil {
-			api.AddWatermarksFile(outputPath, "", nil, wm, nil)
+		err = api.AddTextWatermarksFile(currentInput, outputPath, nil, true, header, "font:Helvetica, scale:0.5, pos:tc, offset:0 20", nil)
+		if err != nil {
+			log.Printf("Header addition warning: %v", err)
 		}
+		currentInput = outputPath // Use output as input for footer
 	}
 
 	// Add footer if provided
 	if footer != "" {
-		wm, err := api.TextWatermark(footer, "font:Helvetica, scale:0.5, pos:bc, offset:0 -20", true, false, model.POINTS)
-		if err == nil {
-			api.AddWatermarksFile(outputPath, "", nil, wm, nil)
+		// If we already added a header, we need a temp file for the footer
+		if header != "" {
+			tempOutput := generateOutputPath("header-footer-temp", ".pdf")
+			err = api.AddTextWatermarksFile(currentInput, tempOutput, nil, true, footer, "font:Helvetica, scale:0.5, pos:bc, offset:0 -20", nil)
+			if err != nil {
+				log.Printf("Footer addition warning: %v", err)
+			}
+			// Copy temp to output
+			copyFile(tempOutput, outputPath)
+			os.Remove(tempOutput)
+		} else {
+			err = api.AddTextWatermarksFile(currentInput, outputPath, nil, true, footer, "font:Helvetica, scale:0.5, pos:bc, offset:0 -20", nil)
+			if err != nil {
+				log.Printf("Footer addition warning: %v", err)
+			}
 		}
 	}
 
@@ -691,7 +694,6 @@ func handleMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 
 	outputPath := generateOutputPath("metadata", ".pdf")
-	copyFile(inputPath, outputPath)
 
 	// Build properties map
 	props := make(map[string]string)
@@ -709,10 +711,15 @@ func handleMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(props) > 0 {
-		err = api.SetPropertiesFile(outputPath, "", props, nil)
+		err = api.AddPropertiesFile(inputPath, outputPath, props, nil)
 		if err != nil {
 			log.Printf("Metadata update warning: %v", err)
+			// If properties fails, just copy the file without changes
+			copyFile(inputPath, outputPath)
 		}
+	} else {
+		// No properties to add, just copy the file
+		copyFile(inputPath, outputPath)
 	}
 
 	sendDownloadResponse(w, filepath.Base(outputPath))
