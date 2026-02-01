@@ -14,25 +14,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { compressPDF, downloadBlob } from "@/lib/pdf-utils";
+import { useBackendPdf, getBaseName } from "@/hooks/use-backend-pdf";
 import { toast } from "@/hooks/use-toast";
 
 type SizeUnit = "KB" | "MB";
 
 const CompressPDF = () => {
   const [files, setFiles] = useState<File[]>([]);
-  const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
-  const [progress, setProgress] = useState(0);
-  const [compressionResult, setCompressionResult] = useState<{
-    original: number;
-    compressed: number;
-    targetReached: boolean;
-  } | null>(null);
   
   // Target size settings
   const [useTargetSize, setUseTargetSize] = useState(false);
   const [targetSize, setTargetSize] = useState("500");
   const [targetUnit, setTargetUnit] = useState<SizeUnit>("KB");
+
+  const { status, progress, processFiles, reset } = useBackendPdf();
 
   const getTargetBytes = () => {
     const size = parseFloat(targetSize) || 0;
@@ -53,49 +48,24 @@ const CompressPDF = () => {
       return;
     }
 
-    setStatus("processing");
-    setProgress(0);
-
-    try {
-      const originalSize = files[0].size;
-      setProgress(30);
-      
-      const compressedBlob = await compressPDF(files[0]);
-      setProgress(80);
-
-      const compressedSize = compressedBlob.size;
-      const targetReached = !useTargetSize || compressedSize <= targetBytes;
-
-      setCompressionResult({
-        original: originalSize,
-        compressed: compressedSize,
-        targetReached,
-      });
-
-      if (useTargetSize && !targetReached) {
-        toast({
-          title: "Target size not reached",
-          description: `Best compression achieved: ${formatSize(compressedSize)}. For smaller sizes, consider removing pages or reducing image quality externally.`,
-          variant: "default",
-        });
-      }
-
-      const originalName = files[0].name.replace(".pdf", "");
-      await downloadBlob(compressedBlob, `${originalName}-compressed.pdf`);
-      
-      setProgress(100);
-      setStatus("success");
-    } catch (error) {
-      console.error("Compress error:", error);
-      setStatus("error");
+    const baseName = getBaseName(files[0].name);
+    const params: Record<string, string> = {};
+    
+    if (useTargetSize) {
+      params.targetSize = targetBytes.toString();
     }
+
+    await processFiles(
+      "compressPdf",
+      files,
+      Object.keys(params).length > 0 ? params : undefined,
+      `${baseName}-compressed.pdf`
+    );
   };
 
   const handleReset = () => {
     setFiles([]);
-    setStatus("idle");
-    setProgress(0);
-    setCompressionResult(null);
+    reset();
   };
 
   const formatSize = (bytes: number) => {
@@ -104,15 +74,6 @@ const CompressPDF = () => {
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
-  const getCompressionPercentage = () => {
-    if (!compressionResult) return 0;
-    const reduction =
-      ((compressionResult.original - compressionResult.compressed) /
-        compressionResult.original) *
-      100;
-    return Math.max(0, reduction).toFixed(1);
   };
 
   return (
@@ -188,12 +149,6 @@ const CompressPDF = () => {
                     )}
                   </div>
                 )}
-
-                {useTargetSize && (
-                  <p className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
-                    💡 Note: Browser-based compression has limitations. Very aggressive compression may not always be achievable client-side.
-                  </p>
-                )}
               </div>
 
               <div className="flex justify-center">
@@ -213,56 +168,10 @@ const CompressPDF = () => {
             progress={progress}
             message={
               status === "success"
-                ? "Your compressed PDF has been downloaded!"
-                : "Compressing your PDF..."
+                ? "Your compressed PDF is ready for download!"
+                : "Uploading and compressing your PDF..."
             }
           />
-
-          {status === "success" && compressionResult && (
-            <div className="mt-6 space-y-4">
-              <div className="rounded-lg border bg-card p-6">
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Original</p>
-                    <p className="text-lg font-semibold text-foreground">
-                      {formatSize(compressionResult.original)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Compressed</p>
-                    <p className="text-lg font-semibold text-foreground">
-                      {formatSize(compressionResult.compressed)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Saved</p>
-                    <p className="text-lg font-semibold text-green-500">
-                      {getCompressionPercentage()}%
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {useTargetSize && (
-                <div className={`rounded-lg border p-4 ${
-                  compressionResult.targetReached 
-                    ? "bg-green-500/10 border-green-500/30" 
-                    : "bg-yellow-500/10 border-yellow-500/30"
-                }`}>
-                  <p className={`text-sm font-medium ${
-                    compressionResult.targetReached 
-                      ? "text-green-600 dark:text-green-400" 
-                      : "text-yellow-600 dark:text-yellow-400"
-                  }`}>
-                    {compressionResult.targetReached 
-                      ? `✓ Target size of ${targetSize} ${targetUnit} reached!`
-                      : `⚠ Could not reach target of ${targetSize} ${targetUnit}. Best result: ${formatSize(compressionResult.compressed)}`
-                    }
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
 
           {status === "success" && (
             <div className="mt-6 flex justify-center">

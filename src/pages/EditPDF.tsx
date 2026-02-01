@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { FileText, Type, Square, Circle, Pencil, Undo, Download, Trash2 } from "lucide-react";
 import ToolLayout from "@/components/ToolLayout";
 import FileUpload from "@/components/FileUpload";
@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import ProcessingStatus from "@/components/ProcessingStatus";
-import { downloadBlob } from "@/lib/pdf-utils";
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { useBackendPdf, getBaseName, triggerDownload } from "@/hooks/use-backend-pdf";
+import { getApiUrl } from "@/lib/api-config";
+import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -186,103 +187,49 @@ const EditPDF = () => {
     setAnnotations((prev) => prev.filter((a) => a.page !== currentPage));
   };
 
-  const hexToRgb = (hex: string) => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result
-      ? {
-          r: parseInt(result[1], 16) / 255,
-          g: parseInt(result[2], 16) / 255,
-          b: parseInt(result[3], 16) / 255,
-        }
-      : { r: 0, g: 0, b: 0 };
-  };
-
   const savePDF = async () => {
     if (!pdfBytesRef.current) return;
 
     setStatus("saving");
-    setProgress(0);
+    setProgress(10);
 
     try {
-      const pdfDoc = await PDFDocument.load(pdfBytesRef.current);
-      const pages = pdfDoc.getPages();
-      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const formData = new FormData();
+      formData.append("file0", files[0]);
+      formData.append("fileCount", "1");
+      formData.append("annotations", JSON.stringify(annotations));
+      formData.append("dimensions", JSON.stringify(pageDimensionsRef.current));
 
       setProgress(30);
 
-      for (const annotation of annotations) {
-        const page = pages[annotation.page - 1];
-        if (!page) continue;
+      const response = await fetch(getApiUrl("editPdf"), {
+        method: "POST",
+        body: formData,
+      });
 
-        const { width: pageWidth, height: pageHeight } = page.getSize();
-        const dims = pageDimensionsRef.current[annotation.page - 1];
-        const scaleX = pageWidth / dims.width;
-        const scaleY = pageHeight / dims.height;
+      setProgress(70);
 
-        const { r, g, b } = hexToRgb(annotation.color);
-        const pdfColor = rgb(r, g, b);
-
-        // Convert canvas coordinates to PDF coordinates (PDF origin is bottom-left)
-        const pdfX = annotation.x * scaleX;
-        const pdfY = pageHeight - annotation.y * scaleY;
-
-        if (annotation.type === "text" && annotation.text) {
-          page.drawText(annotation.text, {
-            x: pdfX,
-            y: pdfY,
-            size: (annotation.fontSize || 16) * scaleY,
-            font,
-            color: pdfColor,
-          });
-        } else if (annotation.type === "rectangle" && annotation.width && annotation.height) {
-          page.drawRectangle({
-            x: pdfX,
-            y: pdfY - annotation.height * scaleY,
-            width: annotation.width * scaleX,
-            height: annotation.height * scaleY,
-            borderColor: pdfColor,
-            borderWidth: 2,
-          });
-        } else if (annotation.type === "circle" && annotation.width && annotation.height) {
-          const radiusX = (annotation.width * scaleX) / 2;
-          const radiusY = (annotation.height * scaleY) / 2;
-          page.drawEllipse({
-            x: pdfX + radiusX,
-            y: pdfY - radiusY,
-            xScale: radiusX,
-            yScale: radiusY,
-            borderColor: pdfColor,
-            borderWidth: 2,
-          });
-        } else if (annotation.type === "freehand" && annotation.points) {
-          // Draw freehand as connected lines
-          for (let i = 1; i < annotation.points.length; i++) {
-            const p1 = annotation.points[i - 1];
-            const p2 = annotation.points[i];
-            page.drawLine({
-              start: { x: p1.x * scaleX, y: pageHeight - p1.y * scaleY },
-              end: { x: p2.x * scaleX, y: pageHeight - p2.y * scaleY },
-              thickness: 2,
-              color: pdfColor,
-            });
-          }
-        }
+      if (!response.ok) {
+        throw new Error("Saving failed");
       }
 
-      setProgress(80);
+      const result = await response.json();
+      
+      if (!result.downloadUrl) {
+        throw new Error("No download URL returned");
+      }
 
-      const savedBytes = await pdfDoc.save();
-      const buffer = new ArrayBuffer(savedBytes.length);
-      new Uint8Array(buffer).set(savedBytes);
-      const blob = new Blob([buffer], { type: "application/pdf" });
-
-      const originalName = files[0].name.replace(".pdf", "");
-      await downloadBlob(blob, `${originalName}-edited.pdf`);
+      setProgress(90);
+      const baseName = getBaseName(files[0].name);
+      triggerDownload(result.downloadUrl, `${baseName}-edited.pdf`);
 
       setProgress(100);
       setStatus("success");
     } catch (error) {
       console.error("Save error:", error);
+      toast.error("Save failed", {
+        description: error instanceof Error ? error.message : "Please check your backend server",
+      });
       setStatus("error");
     }
   };
@@ -478,18 +425,6 @@ const EditPDF = () => {
               })}
 
               {/* Current drawing preview */}
-              {isDrawing && drawStart && selectedTool === "rectangle" && (
-                <rect
-                  x={Math.min(drawStart.x, currentPath[currentPath.length - 1]?.x || drawStart.x)}
-                  y={Math.min(drawStart.y, currentPath[currentPath.length - 1]?.y || drawStart.y)}
-                  width={Math.abs((currentPath[currentPath.length - 1]?.x || drawStart.x) - drawStart.x)}
-                  height={Math.abs((currentPath[currentPath.length - 1]?.y || drawStart.y) - drawStart.y)}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={2}
-                  strokeDasharray="5,5"
-                />
-              )}
               {isDrawing && currentPath.length > 1 && selectedTool === "freehand" && (
                 <path
                   d={currentPath.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ")}
@@ -501,30 +436,36 @@ const EditPDF = () => {
             </svg>
           </div>
 
-          {/* Page navigation */}
-          <div className="flex items-center justify-center gap-4">
-            <Button
-              variant="outline"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-            >
-              Previous
-            </Button>
-            <span className="text-sm">
-              Page {currentPage} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </Button>
-          </div>
+          {/* Page Navigation */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-4">
+              <Button
+                variant="outline"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         <>
-          <ProcessingStatus status="success" progress={100} message="Your edited PDF has been downloaded!" />
+          <ProcessingStatus
+            status={status}
+            progress={progress}
+            message="Your edited PDF is ready for download!"
+          />
           <div className="mt-6 flex justify-center">
             <Button onClick={handleReset}>Edit Another PDF</Button>
           </div>

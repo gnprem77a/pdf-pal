@@ -6,11 +6,8 @@ import ProcessingStatus from "@/components/ProcessingStatus";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { downloadBlob } from "@/lib/pdf-utils";
-import * as pdfjsLib from "pdfjs-dist";
-
-// Set worker path - use .mjs for ES module compatibility
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+import { useBackendPdf, getBaseName, triggerDownload } from "@/hooks/use-backend-pdf";
+import { getApiUrl } from "@/lib/api-config";
 
 const PDFToText = () => {
   const [files, setFiles] = useState<File[]>([]);
@@ -20,115 +17,61 @@ const PDFToText = () => {
 
   const handleExtract = async () => {
     if (files.length === 0) return;
-
     setStatus("processing");
-    setProgress(0);
+    setProgress(30);
 
     try {
-      const arrayBuffer = await files[0].arrayBuffer();
-      setProgress(20);
+      const formData = new FormData();
+      formData.append("file0", files[0]);
+      formData.append("fileCount", "1");
 
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      setProgress(40);
+      const response = await fetch(getApiUrl("pdfToText"), { method: "POST", body: formData });
+      setProgress(70);
 
-      let fullText = "";
-      const totalPages = pdf.numPages;
-
-      for (let i = 1; i <= totalPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(" ");
-        fullText += `--- Page ${i} ---\n${pageText}\n\n`;
-        setProgress(40 + (i / totalPages) * 50);
-      }
-
-      setExtractedText(fullText);
+      if (!response.ok) throw new Error("Extraction failed");
+      const result = await response.json();
+      setExtractedText(result.text || "");
       setProgress(100);
       setStatus("success");
     } catch (error) {
-      console.error("Extraction error:", error);
       setStatus("error");
     }
   };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(extractedText);
-    toast({
-      title: "Copied!",
-      description: "Text copied to clipboard",
-    });
+    toast({ title: "Copied!", description: "Text copied to clipboard" });
   };
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     const blob = new Blob([extractedText], { type: "text/plain" });
-    const filename = files[0]?.name.replace(".pdf", ".txt") || "extracted-text.txt";
-    await downloadBlob(blob, filename);
+    const url = URL.createObjectURL(blob);
+    triggerDownload(url, files[0]?.name.replace(".pdf", ".txt") || "text.txt");
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const handleReset = () => {
-    setFiles([]);
-    setStatus("idle");
-    setProgress(0);
-    setExtractedText("");
-  };
+  const handleReset = () => { setFiles([]); setStatus("idle"); setProgress(0); setExtractedText(""); };
 
   return (
-    <ToolLayout
-      title="PDF to Text"
-      description="Extract text content from PDF files"
-      icon={FileText}
-      color="word"
-    >
+    <ToolLayout title="PDF to Text" description="Extract text content from PDF files" icon={FileText} color="word">
       {status === "idle" || status === "error" ? (
         <>
-          <FileUpload
-            files={files}
-            onFilesChange={setFiles}
-            title="Drop your PDF file here"
-            description="Select a PDF to extract text"
-          />
-
-          {files.length > 0 && (
-            <div className="mt-6 flex justify-center">
-              <Button size="lg" onClick={handleExtract} className="px-8">
-                Extract Text
-              </Button>
-            </div>
-          )}
+          <FileUpload files={files} onFilesChange={setFiles} title="Drop your PDF file here" description="Select a PDF to extract text" />
+          {files.length > 0 && <div className="mt-6 flex justify-center"><Button size="lg" onClick={handleExtract} className="px-8">Extract Text</Button></div>}
         </>
       ) : status === "processing" ? (
-        <ProcessingStatus
-          status={status}
-          progress={progress}
-          message="Extracting text from PDF..."
-        />
+        <ProcessingStatus status={status} progress={progress} message="Extracting text..." />
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-foreground">Extracted Text</h3>
+            <h3 className="font-semibold">Extracted Text</h3>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleCopy}>
-                <Copy className="mr-2 h-4 w-4" />
-                Copy
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleDownload}>
-                <Download className="mr-2 h-4 w-4" />
-                Download .txt
-              </Button>
+              <Button variant="outline" size="sm" onClick={handleCopy}><Copy className="mr-2 h-4 w-4" />Copy</Button>
+              <Button variant="outline" size="sm" onClick={handleDownload}><Download className="mr-2 h-4 w-4" />Download</Button>
             </div>
           </div>
-
-          <Textarea
-            value={extractedText}
-            readOnly
-            className="min-h-[400px] font-mono text-sm"
-          />
-
-          <div className="flex justify-center">
-            <Button onClick={handleReset}>Extract Another PDF</Button>
-          </div>
+          <Textarea value={extractedText} readOnly className="min-h-[400px] font-mono text-sm" />
+          <div className="flex justify-center"><Button onClick={handleReset}>Extract Another PDF</Button></div>
         </div>
       )}
     </ToolLayout>

@@ -4,41 +4,29 @@ import ToolLayout from "@/components/ToolLayout";
 import FileUpload from "@/components/FileUpload";
 import ProcessingStatus from "@/components/ProcessingStatus";
 import { Button } from "@/components/ui/button";
-import { rotatePDF, downloadBlob } from "@/lib/pdf-utils";
+import { useBackendPdf, getBaseName } from "@/hooks/use-backend-pdf";
 
 const RotatePDF = () => {
   const [files, setFiles] = useState<File[]>([]);
-  const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
-  const [progress, setProgress] = useState(0);
   const [rotation, setRotation] = useState(90);
+
+  const { status, progress, processFiles, reset } = useBackendPdf();
 
   const handleRotate = async () => {
     if (files.length === 0) return;
-
-    setStatus("processing");
-    setProgress(0);
-
-    try {
-      setProgress(30);
-      const rotatedBlob = await rotatePDF(files[0], rotation);
-      setProgress(80);
-
-      const originalName = files[0].name.replace(".pdf", "");
-      await downloadBlob(rotatedBlob, `${originalName}-rotated.pdf`);
-      
-      setProgress(100);
-      setStatus("success");
-    } catch (error) {
-      console.error("Rotate error:", error);
-      setStatus("error");
-    }
+    const baseName = getBaseName(files[0].name);
+    await processFiles(
+      "rotatePdf",
+      files,
+      { angle: rotation.toString() },
+      `${baseName}-rotated.pdf`
+    );
   };
 
   const handleReset = () => {
     setFiles([]);
-    setStatus("idle");
-    setProgress(0);
     setRotation(90);
+    reset();
   };
 
   return (
@@ -87,8 +75,8 @@ const RotatePDF = () => {
             progress={progress}
             message={
               status === "success"
-                ? "Your rotated PDF has been downloaded!"
-                : "Rotating your PDF..."
+                ? "Your rotated PDF is ready for download!"
+                : "Uploading and rotating your PDF..."
             }
           />
 

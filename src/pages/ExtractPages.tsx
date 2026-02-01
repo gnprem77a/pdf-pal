@@ -4,8 +4,7 @@ import ToolLayout from "@/components/ToolLayout";
 import FileUpload from "@/components/FileUpload";
 import ProcessingStatus from "@/components/ProcessingStatus";
 import { Button } from "@/components/ui/button";
-import { PDFDocument } from "pdf-lib";
-import { downloadBlob } from "@/lib/pdf-utils";
+import { useBackendPdf, getBaseName } from "@/hooks/use-backend-pdf";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
@@ -14,12 +13,12 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 const ExtractPages = () => {
   const [files, setFiles] = useState<File[]>([]);
-  const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
-  const [progress, setProgress] = useState(0);
   const [pageCount, setPageCount] = useState(0);
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
   const [pageThumbnails, setPageThumbnails] = useState<string[]>([]);
   const [loadingThumbnails, setLoadingThumbnails] = useState(false);
+
+  const { status, progress, processFiles, reset } = useBackendPdf();
 
   const generateThumbnails = async (file: File) => {
     setLoadingThumbnails(true);
@@ -85,50 +84,24 @@ const ExtractPages = () => {
 
   const handleExtract = async () => {
     if (files.length === 0 || selectedPages.length === 0) return;
-
-    setStatus("processing");
-    setProgress(0);
-
-    try {
-      setProgress(20);
-      const arrayBuffer = await files[0].arrayBuffer();
-      const pdfDoc = await PDFDocument.load(arrayBuffer);
-
-      setProgress(40);
-      
-      // Sort selected pages for proper order
-      const sortedPages = [...selectedPages].sort((a, b) => a - b);
-      const pagesToExtract = sortedPages.map(p => p - 1); // 0-indexed
-
-      setProgress(60);
-      
-      const newPdf = await PDFDocument.create();
-      const copiedPages = await newPdf.copyPages(pdfDoc, pagesToExtract);
-      copiedPages.forEach(page => newPdf.addPage(page));
-
-      setProgress(80);
-      
-      const pdfBytes = await newPdf.save();
-      const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
-      
-      const originalName = files[0].name.replace(".pdf", "");
-      await downloadBlob(blob, `${originalName}-extracted.pdf`);
-
-      setProgress(100);
-      setStatus("success");
-    } catch (error) {
-      console.error("Extract error:", error);
-      setStatus("error");
-    }
+    
+    const sortedPages = [...selectedPages].sort((a, b) => a - b);
+    const baseName = getBaseName(files[0].name);
+    
+    await processFiles(
+      "extractPages",
+      files,
+      { pages: JSON.stringify(sortedPages) },
+      `${baseName}-extracted.pdf`
+    );
   };
 
   const handleReset = () => {
     setFiles([]);
-    setStatus("idle");
-    setProgress(0);
     setPageCount(0);
     setSelectedPages([]);
     setPageThumbnails([]);
+    reset();
   };
 
   return (
@@ -236,8 +209,8 @@ const ExtractPages = () => {
             progress={progress}
             message={
               status === "success"
-                ? "Your extracted PDF has been downloaded!"
-                : "Extracting pages..."
+                ? "Your extracted PDF is ready for download!"
+                : "Uploading and extracting pages..."
             }
           />
 

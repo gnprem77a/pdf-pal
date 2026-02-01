@@ -11,10 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mergePDFs, compressPDF, downloadBlob, downloadAsZip } from "@/lib/pdf-utils";
 import { toast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import BatchFileCard, { BatchFileItem, FileStatus } from "@/components/BatchFileCard";
+import { getApiUrl } from "@/lib/api-config";
+import { triggerDownload } from "@/hooks/use-backend-pdf";
 
 type BatchOperation = "compress" | "merge";
 
@@ -24,14 +25,12 @@ const BatchProcess = () => {
   const [operation, setOperation] = useState<BatchOperation>("compress");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [mergeResult, setMergeResult] = useState<Blob | null>(null);
   const pauseRef = useRef(false);
 
   const generateId = () => Math.random().toString(36).substring(2, 9);
 
   const handleFilesChange = (newFiles: File[]) => {
     setFiles(newFiles);
-    // Create queue items for new files
     const newItems: BatchFileItem[] = newFiles.map((file) => ({
       id: generateId(),
       file,
@@ -39,7 +38,6 @@ const BatchProcess = () => {
       progress: 0,
     }));
     setQueue(newItems);
-    setMergeResult(null);
   };
 
   const updateQueueItem = useCallback((id: string, updates: Partial<BatchFileItem>) => {
@@ -48,139 +46,63 @@ const BatchProcess = () => {
     );
   }, []);
 
-  const processCompression = async () => {
+  const processFiles = async () => {
     setIsProcessing(true);
     pauseRef.current = false;
 
-    for (const item of queue) {
-      if (item.status === "complete") continue;
-      
-      // Check for pause
-      while (pauseRef.current) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-
-      updateQueueItem(item.id, { status: "processing", progress: 0 });
-
-      try {
-        // Simulate progress updates
-        for (let p = 10; p <= 80; p += 20) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-          updateQueueItem(item.id, { progress: p });
-        }
-
-        const compressedBlob = await compressPDF(item.file);
-        
-        updateQueueItem(item.id, {
-          status: "complete",
-          progress: 100,
-          result: compressedBlob,
-        });
-      } catch (error) {
-        console.error("Compression error:", error);
-        updateQueueItem(item.id, {
-          status: "error",
-          progress: 0,
-          error: "Failed to compress file",
-        });
-      }
-    }
-
-    setIsProcessing(false);
-    setIsPaused(false);
-
-    const completedCount = queue.filter((q) => q.status === "complete" || queue.find(i => i.id === q.id)?.status === "complete").length;
-    toast({
-      title: "Processing complete!",
-      description: `${completedCount} file(s) compressed successfully.`,
-    });
-  };
-
-  const processMerge = async () => {
-    setIsProcessing(true);
-    
-    // Mark all as processing
-    queue.forEach((item) => {
-      updateQueueItem(item.id, { status: "processing", progress: 50 });
-    });
-
     try {
-      const mergedBlob = await mergePDFs(files);
-      
+      const formData = new FormData();
+      files.forEach((file, index) => {
+        formData.append(`file${index}`, file);
+      });
+      formData.append("fileCount", files.length.toString());
+      formData.append("operation", operation);
+
+      // Update all items to processing
+      queue.forEach((item) => {
+        updateQueueItem(item.id, { status: "processing", progress: 50 });
+      });
+
+      const endpoint = operation === "merge" ? "mergePdf" : "batchProcess";
+      const response = await fetch(getApiUrl(endpoint), {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Processing failed");
+      }
+
+      const result = await response.json();
+
       // Mark all as complete
       queue.forEach((item) => {
         updateQueueItem(item.id, { status: "complete", progress: 100 });
       });
 
-      setMergeResult(mergedBlob);
-      
+      if (result.downloadUrl) {
+        const filename = operation === "merge" ? "merged.pdf" : "processed.zip";
+        triggerDownload(result.downloadUrl, filename);
+      }
+
       toast({
-        title: "Merge complete!",
-        description: `${files.length} files merged into one PDF.`,
+        title: "Processing complete!",
+        description: `${files.length} file(s) processed successfully.`,
       });
     } catch (error) {
-      console.error("Merge error:", error);
+      console.error("Batch processing error:", error);
       queue.forEach((item) => {
-        updateQueueItem(item.id, { status: "error", error: "Failed to merge" });
+        updateQueueItem(item.id, { status: "error", error: "Processing failed" });
       });
       toast({
         title: "Error",
-        description: "Failed to merge files.",
+        description: "Failed to process files.",
         variant: "destructive",
       });
     }
 
     setIsProcessing(false);
-  };
-
-  const handleProcess = () => {
-    if (operation === "compress") {
-      processCompression();
-    } else {
-      processMerge();
-    }
-  };
-
-  const togglePause = () => {
-    pauseRef.current = !pauseRef.current;
-    setIsPaused(!isPaused);
-  };
-
-  const handleRetry = (id: string) => {
-    updateQueueItem(id, { status: "pending", progress: 0, error: undefined });
-  };
-
-  const handleRemove = (id: string) => {
-    setQueue((prev) => prev.filter((item) => item.id !== id));
-    setFiles((prev) => {
-      const item = queue.find((q) => q.id === id);
-      return item ? prev.filter((f) => f !== item.file) : prev;
-    });
-  };
-
-  const handleDownloadSingle = async (item: BatchFileItem) => {
-    if (item.result) {
-      const name = item.file.name.replace(".pdf", "-compressed.pdf");
-      await downloadBlob(item.result, name);
-    }
-  };
-
-  const handleDownloadAll = async () => {
-    if (operation === "merge" && mergeResult) {
-      await downloadBlob(mergeResult, "merged.pdf");
-      return;
-    }
-
-    const completedItems = queue.filter((item) => item.status === "complete" && item.result);
-    if (completedItems.length === 1) {
-      handleDownloadSingle(completedItems[0]);
-      return;
-    }
-
-    await downloadAsZip(
-      completedItems.map((item) => item.result!),
-      completedItems.map((item) => item.file.name.replace(".pdf", "-compressed.pdf"))
-    );
+    setIsPaused(false);
   };
 
   const handleReset = () => {
@@ -188,19 +110,8 @@ const BatchProcess = () => {
     setQueue([]);
     setIsProcessing(false);
     setIsPaused(false);
-    setMergeResult(null);
   };
 
-  const retryAll = () => {
-    queue.forEach((item) => {
-      if (item.status === "error") {
-        updateQueueItem(item.id, { status: "pending", progress: 0, error: undefined });
-      }
-    });
-    handleProcess();
-  };
-
-  // Statistics
   const stats = {
     total: queue.length,
     pending: queue.filter((q) => q.status === "pending").length,
@@ -215,12 +126,11 @@ const BatchProcess = () => {
 
   const hasStarted = stats.complete > 0 || stats.processing > 0 || stats.error > 0;
   const allComplete = stats.complete === stats.total && stats.total > 0;
-  const hasErrors = stats.error > 0;
 
   return (
     <ToolLayout
       title="Batch Process"
-      description="Process multiple PDF files with real-time progress tracking"
+      description="Process multiple PDF files at once"
       icon={Layers}
       color="merge"
     >
@@ -234,7 +144,6 @@ const BatchProcess = () => {
         />
       ) : (
         <div className="space-y-6">
-          {/* Header Stats */}
           <div className="rounded-lg border bg-card p-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="space-y-1">
@@ -249,7 +158,6 @@ const BatchProcess = () => {
                 </div>
               </div>
 
-              {/* Operation Selector */}
               {!hasStarted && (
                 <div className="flex items-center gap-2">
                   <Label className="text-sm">Operation:</Label>
@@ -276,7 +184,6 @@ const BatchProcess = () => {
               )}
             </div>
 
-            {/* Overall Progress Bar */}
             {hasStarted && (
               <div className="mt-4">
                 <Progress value={overallProgress} className="h-3" />
@@ -287,24 +194,22 @@ const BatchProcess = () => {
             )}
           </div>
 
-          {/* File Queue */}
           <div className="space-y-3">
             {queue.map((item) => (
               <BatchFileCard
                 key={item.id}
                 item={item}
-                onRetry={handleRetry}
-                onRemove={handleRemove}
-                onDownload={handleDownloadSingle}
+                onRetry={() => {}}
+                onRemove={() => {}}
+                onDownload={() => {}}
               />
             ))}
           </div>
 
-          {/* Action Buttons */}
           <div className="flex flex-wrap justify-center gap-3">
             {!hasStarted && (
               <>
-                <Button size="lg" onClick={handleProcess} className="px-8">
+                <Button size="lg" onClick={processFiles} className="px-8">
                   <Play className="mr-2 h-4 w-4" />
                   Start Processing
                 </Button>
@@ -314,42 +219,9 @@ const BatchProcess = () => {
               </>
             )}
 
-            {isProcessing && operation === "compress" && (
-              <Button
-                size="lg"
-                variant={isPaused ? "default" : "outline"}
-                onClick={togglePause}
-              >
-                {isPaused ? (
-                  <>
-                    <Play className="mr-2 h-4 w-4" />
-                    Resume
-                  </>
-                ) : (
-                  <>
-                    <Pause className="mr-2 h-4 w-4" />
-                    Pause
-                  </>
-                )}
-              </Button>
-            )}
-
             {allComplete && (
-              <>
-                <Button size="lg" onClick={handleDownloadAll}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Download {operation === "merge" ? "Merged PDF" : `All (${stats.complete})`}
-                </Button>
-                <Button variant="outline" size="lg" onClick={handleReset}>
-                  Process More Files
-                </Button>
-              </>
-            )}
-
-            {hasErrors && !isProcessing && (
-              <Button size="lg" variant="outline" onClick={retryAll}>
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Retry Failed ({stats.error})
+              <Button variant="outline" size="lg" onClick={handleReset}>
+                Process More Files
               </Button>
             )}
           </div>

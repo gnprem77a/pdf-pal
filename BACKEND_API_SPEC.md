@@ -2,53 +2,62 @@
 
 This document describes the API endpoints your Go backend needs to implement for the PDF tools.
 
+**IMPORTANT: All processing is now server-side. The frontend sends files to your backend and receives a download URL.**
+
 ## Base Configuration
 
-Set the `VITE_API_URL` environment variable to your API Gateway URL when deploying:
+Set the `VITE_API_URL` environment variable:
 ```
 VITE_API_URL=https://api.yourdomain.com
 ```
 
+## Response Format
+
+All endpoints return JSON with a download URL:
+```json
+{
+  "downloadUrl": "https://your-bucket.s3.amazonaws.com/output-abc123.pdf"
+}
+```
+
+## Privacy & Data Retention
+
+- All uploaded/generated files must be deleted automatically (5-10 min TTL or S3 lifecycle rules)
+- No user data should persist after download
+
 ## Required Endpoints
 
-### Health Check
-```
-GET /health
-Response: 200 OK
-```
+All endpoints accept `multipart/form-data` with:
+- `file0`, `file1`, etc.: The uploaded files
+- `fileCount`: Number of files
+- Additional parameters as specified
 
-### Office Conversions
+### PDF Operations
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /api/pdf/merge` | Merge multiple PDFs |
+| `POST /api/pdf/split` | Split PDF (params: `ranges` or `mode=individual`) |
+| `POST /api/pdf/compress` | Compress PDF |
+| `POST /api/pdf/rotate` | Rotate PDF (param: `angle`) |
+| `POST /api/pdf/extract` | Extract pages (param: `pages` JSON array) |
+| `POST /api/pdf/watermark` | Add watermark (param: `text`) |
+| `POST /api/pdf/delete-pages` | Delete pages (param: `pages` JSON array) |
+| `POST /api/pdf/reorder` | Reorder pages (param: `order` JSON array) |
+| `POST /api/pdf/crop` | Crop PDF (params: `top`, `right`, `bottom`, `left`) |
+| `POST /api/pdf/ocr` | OCR PDF (param: `language`) |
+| `POST /api/pdf/sign` | Add signature (param: `signature` base64 image) |
+| `POST /api/pdf/edit` | Apply annotations (param: `annotations` JSON) |
+| `POST /api/pdf/repair` | Repair corrupted PDF |
+| `POST /api/pdf/add-page-numbers` | Add page numbers (param: `position`) |
+| `POST /api/pdf/add-header-footer` | Add headers/footers (params: `header`, `footer`) |
+| `POST /api/pdf/metadata` | Update metadata (params: `title`, `author`, etc.) |
+| `POST /api/pdf/redact` | Redact sensitive content |
+| `POST /api/pdf/unlock` | Unlock PDF (param: `password`) |
+| `POST /api/security/protect` | Password protect PDF |
 
-#### Excel to PDF
-```
-POST /api/convert/excel-to-pdf
-Content-Type: multipart/form-data
-
-Form Fields:
-- file: The Excel file (.xls or .xlsx)
-
-Response: 
-- Content-Type: application/pdf
-- Body: The converted PDF file
-```
-
-#### PDF to Excel
-```
-POST /api/convert/pdf-to-excel
-Content-Type: multipart/form-data
-
-Form Fields:
-- file: The PDF file
-
-Response:
-- Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-- Body: The converted Excel file
-```
-
-#### PowerPoint to PDF
-```
-POST /api/convert/ppt-to-pdf
-Content-Type: multipart/form-data
+### Conversions
+| Endpoint | Purpose |
+|----------|---------|
 
 Form Fields:
 - file: The PowerPoint file (.ppt or .pptx)

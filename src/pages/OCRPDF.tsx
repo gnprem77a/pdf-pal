@@ -14,11 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { downloadBlob } from "@/lib/pdf-utils";
-import Tesseract from "tesseract.js";
-import * as pdfjsLib from "pdfjs-dist";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+import { useBackendPdf, getBaseName, triggerDownload } from "@/hooks/use-backend-pdf";
+import { getApiUrl } from "@/lib/api-config";
 
 const OCRPDF = () => {
   const [files, setFiles] = useState<File[]>([]);
@@ -47,50 +44,36 @@ const OCRPDF = () => {
     if (files.length === 0) return;
 
     setStatus("processing");
-    setProgress(0);
-    setProgressMessage("Loading PDF...");
+    setProgress(10);
+    setProgressMessage("Uploading PDF for OCR processing...");
     setExtractedText("");
 
     try {
-      const arrayBuffer = await files[0].arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const totalPages = pdf.numPages;
+      const formData = new FormData();
+      formData.append("file0", files[0]);
+      formData.append("fileCount", "1");
+      formData.append("language", language);
 
-      let fullText = "";
+      setProgress(30);
+      setProgressMessage("Processing OCR on server...");
 
-      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-        setProgressMessage(`Rendering page ${pageNum} of ${totalPages}...`);
-        
-        const page = await pdf.getPage(pageNum);
-        const viewport = page.getViewport({ scale: 2 });
+      const response = await fetch(getApiUrl("ocrPdf"), {
+        method: "POST",
+        body: formData,
+      });
 
-        const canvas = document.createElement("canvas");
-        const context = canvas.getContext("2d")!;
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+      setProgress(70);
 
-        await page.render({
-          canvasContext: context,
-          viewport: viewport,
-          canvas: canvas,
-        }).promise;
-
-        setProgressMessage(`Running OCR on page ${pageNum}...`);
-        
-        const result = await Tesseract.recognize(canvas, language, {
-          logger: (m) => {
-            if (m.status === "recognizing text") {
-              const pageProgress = (pageNum - 1) / totalPages;
-              const withinPageProgress = m.progress / totalPages;
-              setProgress((pageProgress + withinPageProgress) * 100);
-            }
-          },
-        });
-
-        fullText += `--- Page ${pageNum} ---\n${result.data.text}\n\n`;
+      if (!response.ok) {
+        throw new Error("OCR processing failed");
       }
 
-      setExtractedText(fullText);
+      const result = await response.json();
+      
+      if (result.text) {
+        setExtractedText(result.text);
+      }
+
       setProgress(100);
       setStatus("success");
     } catch (error) {
@@ -109,8 +92,10 @@ const OCRPDF = () => {
 
   const handleDownload = async () => {
     const blob = new Blob([extractedText], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
     const filename = files[0]?.name.replace(".pdf", "-ocr.txt") || "ocr-text.txt";
-    await downloadBlob(blob, filename);
+    triggerDownload(url, filename);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const handleReset = () => {
@@ -153,12 +138,6 @@ const OCRPDF = () => {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-700 dark:text-yellow-300">
-                <strong>Note:</strong> OCR runs entirely in your browser. Large PDFs may take 
-                several minutes. For best results, ensure your scanned document is clear and 
-                high-resolution.
               </div>
 
               <div className="flex justify-center">

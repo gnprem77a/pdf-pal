@@ -4,8 +4,7 @@ import ToolLayout from "@/components/ToolLayout";
 import FileUpload from "@/components/FileUpload";
 import ProcessingStatus from "@/components/ProcessingStatus";
 import { Button } from "@/components/ui/button";
-import { downloadBlob } from "@/lib/pdf-utils";
-import { PDFDocument } from "pdf-lib";
+import { useBackendPdf, getBaseName } from "@/hooks/use-backend-pdf";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -21,10 +20,10 @@ interface PageItem {
 
 const ReorderPages = () => {
   const [files, setFiles] = useState<File[]>([]);
-  const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
-  const [progress, setProgress] = useState(0);
   const [pages, setPages] = useState<PageItem[]>([]);
   const [loadingThumbnails, setLoadingThumbnails] = useState(false);
+
+  const { status, progress, processFiles, reset } = useBackendPdf();
 
   const generateThumbnails = async (file: File) => {
     setLoadingThumbnails(true);
@@ -87,43 +86,22 @@ const ReorderPages = () => {
   const handleReorder = async () => {
     if (files.length === 0 || pages.length === 0) return;
 
-    setStatus("processing");
-    setProgress(0);
-
-    try {
-      const arrayBuffer = await files[0].arrayBuffer();
-      setProgress(30);
-
-      const pdf = await PDFDocument.load(arrayBuffer);
-      const newPdf = await PDFDocument.create();
-
-      // Copy pages in new order
-      const indices = pages.map((p) => p.originalPage - 1);
-      const copiedPages = await newPdf.copyPages(pdf, indices);
-      copiedPages.forEach((page) => newPdf.addPage(page));
-
-      setProgress(80);
-      const pdfBytes = await newPdf.save();
-      const buffer = new ArrayBuffer(pdfBytes.length);
-      new Uint8Array(buffer).set(pdfBytes);
-      const blob = new Blob([buffer], { type: "application/pdf" });
-
-      const originalName = files[0].name.replace(".pdf", "");
-      await downloadBlob(blob, `${originalName}-reordered.pdf`);
-
-      setProgress(100);
-      setStatus("success");
-    } catch (error) {
-      console.error("Reorder error:", error);
-      setStatus("error");
-    }
+    // Get the new order (1-indexed page numbers)
+    const newOrder = pages.map((p) => p.originalPage);
+    const baseName = getBaseName(files[0].name);
+    
+    await processFiles(
+      "reorderPages",
+      files,
+      { order: JSON.stringify(newOrder) },
+      `${baseName}-reordered.pdf`
+    );
   };
 
   const handleReset = () => {
     setFiles([]);
-    setStatus("idle");
-    setProgress(0);
     setPages([]);
+    reset();
   };
 
   return (
@@ -220,8 +198,8 @@ const ReorderPages = () => {
             progress={progress}
             message={
               status === "success"
-                ? "Your reordered PDF has been downloaded!"
-                : "Reordering pages..."
+                ? "Your reordered PDF is ready for download!"
+                : "Uploading and reordering pages..."
             }
           />
 

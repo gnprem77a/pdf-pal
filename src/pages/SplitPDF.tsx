@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { splitPDF, splitPDFToPages, downloadAsZip, getPDFPageCount, downloadBlob } from "@/lib/pdf-utils";
+import { useBackendPdf, getBaseName } from "@/hooks/use-backend-pdf";
+import { getPDFPageCount } from "@/lib/pdf-utils";
 
 interface PageRange {
   id: string;
@@ -17,20 +18,19 @@ interface PageRange {
 
 const SplitPDF = () => {
   const [files, setFiles] = useState<File[]>([]);
-  const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
-  const [progress, setProgress] = useState(0);
   const [pageCount, setPageCount] = useState(0);
   const [splitMode, setSplitMode] = useState<"all" | "range">("all");
   const [ranges, setRanges] = useState<PageRange[]>([
     { id: "1", start: "1", end: "" },
   ]);
 
+  const { status, progress, processFiles, reset } = useBackendPdf();
+
   const handleFileChange = async (newFiles: File[]) => {
     setFiles(newFiles);
     if (newFiles.length > 0) {
       const count = await getPDFPageCount(newFiles[0]);
       setPageCount(count);
-      // Set default end to page count
       setRanges([{ id: "1", start: "1", end: String(count) }]);
     } else {
       setPageCount(0);
@@ -68,67 +68,39 @@ const SplitPDF = () => {
 
   const handleSplitAll = async () => {
     if (files.length === 0) return;
-
-    setStatus("processing");
-    setProgress(0);
-
-    try {
-      setProgress(30);
-      const splitBlobs = await splitPDFToPages(files[0]);
-      setProgress(80);
-
-      const filenames = splitBlobs.map((_, i) => `page-${i + 1}.pdf`);
-      await downloadAsZip(splitBlobs, filenames);
-
-      setProgress(100);
-      setStatus("success");
-    } catch (error) {
-      console.error("Split error:", error);
-      setStatus("error");
-    }
+    const baseName = getBaseName(files[0].name);
+    await processFiles(
+      "splitPdf",
+      files,
+      { mode: "individual" },
+      `${baseName}-split.zip`
+    );
   };
 
   const handleSplitByRange = async () => {
     if (files.length === 0) return;
-
     const parsedRanges = parseRanges();
     if (parsedRanges.length === 0) return;
 
-    setStatus("processing");
-    setProgress(0);
+    const baseName = getBaseName(files[0].name);
+    const outputName = parsedRanges.length === 1
+      ? `${baseName}-pages-${parsedRanges[0].start}-${parsedRanges[0].end}.pdf`
+      : `${baseName}-split.zip`;
 
-    try {
-      setProgress(30);
-      const splitBlobs = await splitPDF(files[0], parsedRanges);
-      setProgress(80);
-
-      if (splitBlobs.length === 1) {
-        // Single range - download as PDF directly
-        const range = parsedRanges[0];
-        await downloadBlob(splitBlobs[0], `pages-${range.start}-${range.end}.pdf`);
-      } else {
-        // Multiple ranges - download as ZIP
-        const filenames = parsedRanges.map(
-          (r) => `pages-${r.start}-${r.end}.pdf`
-        );
-        await downloadAsZip(splitBlobs, filenames);
-      }
-
-      setProgress(100);
-      setStatus("success");
-    } catch (error) {
-      console.error("Split error:", error);
-      setStatus("error");
-    }
+    await processFiles(
+      "splitPdf",
+      files,
+      { ranges: JSON.stringify(parsedRanges) },
+      outputName
+    );
   };
 
   const handleReset = () => {
     setFiles([]);
-    setStatus("idle");
-    setProgress(0);
     setPageCount(0);
     setRanges([{ id: "1", start: "1", end: "" }]);
     setSplitMode("all");
+    reset();
   };
 
   const isValidRange = (r: PageRange) => {
@@ -292,12 +264,8 @@ const SplitPDF = () => {
             progress={progress}
             message={
               status === "success"
-                ? splitMode === "all"
-                  ? "Your split PDFs have been downloaded as a ZIP file!"
-                  : ranges.length === 1
-                  ? "Your extracted pages have been downloaded!"
-                  : "Your split PDFs have been downloaded as a ZIP file!"
-                : "Splitting your PDF..."
+                ? "Your split PDFs are ready for download!"
+                : "Uploading and splitting your PDF..."
             }
           />
 
