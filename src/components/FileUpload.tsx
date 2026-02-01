@@ -3,7 +3,7 @@ import { Upload, X, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import PDFThumbnail from "@/components/PDFThumbnail";
-
+import { useNativeFilePicker } from "@/hooks/use-native-file-picker";
 interface FileUploadProps {
   accept?: string;
   multiple?: boolean;
@@ -27,6 +27,7 @@ const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
 }, ref) => {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const { pickFiles: nativePickFiles, isNative } = useNativeFilePicker();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -64,9 +65,22 @@ const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
     [files, maxFiles, onFilesChange]
   );
 
-  const openFileDialog = useCallback(() => {
-    inputRef.current?.click();
-  }, []);
+  const openFileDialog = useCallback(async () => {
+    if (isNative) {
+      // Use native file picker on mobile
+      const pickedFiles = await nativePickFiles({
+        accept,
+        multiple,
+        maxFiles: maxFiles - files.length,
+      });
+      if (pickedFiles.length > 0) {
+        onFilesChange([...files, ...pickedFiles]);
+      }
+    } else {
+      // Use web input on browser
+      inputRef.current?.click();
+    }
+  }, [isNative, nativePickFiles, accept, multiple, maxFiles, files, onFilesChange]);
 
   const removeFile = useCallback(
     (index: number) => {
