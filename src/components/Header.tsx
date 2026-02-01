@@ -36,10 +36,16 @@ const Header = () => {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-lg">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <FileText className="h-5 w-5 text-primary-foreground" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 shadow-md">
+            <svg viewBox="0 0 24 24" className="h-5 w-5 text-primary-foreground" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" fill="currentColor" opacity="0.2" />
+              <polyline points="13 2 13 9 20 9" />
+              <path d="M13 2L20 9" />
+              <path d="M9 17l2-2 2 2" strokeWidth="2.5" />
+              <path d="M11 15v4" strokeWidth="2.5" />
+            </svg>
           </div>
-          <span className="text-xl font-bold text-foreground">PDFTools</span>
+          <span className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">InstantPDF</span>
         </Link>
         
         {/* Desktop Navigation */}
@@ -69,10 +75,15 @@ const Header = () => {
             <SheetContent side="right" className="w-[280px] sm:w-[320px]">
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                    <FileText className="h-4 w-4 text-primary-foreground" />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 shadow-md">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 text-primary-foreground" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" fill="currentColor" opacity="0.2" />
+                      <polyline points="13 2 13 9 20 9" />
+                      <path d="M9 17l2-2 2 2" strokeWidth="2.5" />
+                      <path d="M11 15v4" strokeWidth="2.5" />
+                    </svg>
                   </div>
-                  PDFTools
+                  InstantPDF
                 </SheetTitle>
               </SheetHeader>
               
