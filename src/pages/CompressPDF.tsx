@@ -81,7 +81,7 @@ const CompressPDF = () => {
       }
 
       const originalName = files[0].name.replace(".pdf", "");
-      downloadBlob(compressedBlob, `${originalName}-compressed.pdf`);
+      await downloadBlob(compressedBlob, `${originalName}-compressed.pdf`);
       
       setProgress(100);
       setStatus("success");

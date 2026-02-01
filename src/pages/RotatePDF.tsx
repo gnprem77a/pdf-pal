@@ -24,7 +24,7 @@ const RotatePDF = () => {
       setProgress(80);
 
       const originalName = files[0].name.replace(".pdf", "");
-      downloadBlob(rotatedBlob, `${originalName}-rotated.pdf`);
+      await downloadBlob(rotatedBlob, `${originalName}-rotated.pdf`);
       
       setProgress(100);
       setStatus("success");

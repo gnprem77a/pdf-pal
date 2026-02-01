@@ -101,7 +101,7 @@ const RepairPDF = () => {
       const blob = new Blob([buffer], { type: "application/pdf" });
 
       const originalName = files[0].name.replace(".pdf", "");
-      downloadBlob(blob, `${originalName}-repaired.pdf`);
+      await downloadBlob(blob, `${originalName}-repaired.pdf`);
 
       setRepairResult({
         success: true,

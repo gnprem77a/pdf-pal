@@ -107,7 +107,7 @@ const ScanToPDF = () => {
 
       setProgress(90);
       const pdfBlob = pdf.output("blob");
-      downloadBlob(pdfBlob, `scanned-document-${Date.now()}.pdf`);
+      await downloadBlob(pdfBlob, `scanned-document-${Date.now()}.pdf`);
       
       setProgress(100);
       setStatus("success");

@@ -58,7 +58,7 @@ const ImageToPDF = () => {
 
       setProgress(90);
       const pdfBlob = doc.output("blob");
-      downloadBlob(pdfBlob, "images-to-pdf.pdf");
+      await downloadBlob(pdfBlob, "images-to-pdf.pdf");
 
       setProgress(100);
       setStatus("success");

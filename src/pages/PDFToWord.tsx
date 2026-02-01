@@ -6,7 +6,7 @@ import ProcessingStatus from "@/components/ProcessingStatus";
 import { Button } from "@/components/ui/button";
 import * as pdfjsLib from "pdfjs-dist";
 import { Document, Packer, Paragraph, TextRun } from "docx";
-import { saveAs } from "file-saver";
+import { downloadBlob } from "@/lib/pdf-utils";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
@@ -93,7 +93,7 @@ const PDFToWord = () => {
 
       const blob = await Packer.toBlob(doc);
       const originalName = files[0].name.replace(".pdf", "");
-      saveAs(blob, `${originalName}.docx`);
+      await downloadBlob(blob, `${originalName}.docx`);
 
       setProgress(100);
       setStatus("success");

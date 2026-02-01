@@ -26,7 +26,7 @@ const WatermarkPDF = () => {
       setProgress(80);
 
       const originalName = files[0].name.replace(".pdf", "");
-      downloadBlob(watermarkedBlob, `${originalName}-watermarked.pdf`);
+      await downloadBlob(watermarkedBlob, `${originalName}-watermarked.pdf`);
       
       setProgress(100);
       setStatus("success");

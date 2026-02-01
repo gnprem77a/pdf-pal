@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { downloadBlob } from "@/lib/pdf-utils";
 import Tesseract from "tesseract.js";
 import * as pdfjsLib from "pdfjs-dist";
 
@@ -106,14 +107,10 @@ const OCRPDF = () => {
     });
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     const blob = new Blob([extractedText], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = files[0]?.name.replace(".pdf", "-ocr.txt") || "ocr-text.txt";
-    a.click();
-    URL.revokeObjectURL(url);
+    const filename = files[0]?.name.replace(".pdf", "-ocr.txt") || "ocr-text.txt";
+    await downloadBlob(blob, filename);
   };
 
   const handleReset = () => {

@@ -105,7 +105,7 @@ const SplitPDF = () => {
       if (splitBlobs.length === 1) {
         // Single range - download as PDF directly
         const range = parsedRanges[0];
-        downloadBlob(splitBlobs[0], `pages-${range.start}-${range.end}.pdf`);
+        await downloadBlob(splitBlobs[0], `pages-${range.start}-${range.end}.pdf`);
       } else {
         // Multiple ranges - download as ZIP
         const filenames = parsedRanges.map(

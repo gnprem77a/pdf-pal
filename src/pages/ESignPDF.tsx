@@ -100,7 +100,7 @@ const ESignPDF = () => {
       const blob = new Blob([buffer], { type: "application/pdf" });
 
       const originalName = files[0].name.replace(".pdf", "");
-      downloadBlob(blob, `${originalName}-signed.pdf`);
+      await downloadBlob(blob, `${originalName}-signed.pdf`);
 
       setProgress(100);
       setStatus("success");
