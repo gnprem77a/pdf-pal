@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { forwardRef, useCallback, useRef, useState } from "react";
 import { Upload, X, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ interface FileUploadProps {
   description?: string;
 }
 
-const FileUpload = ({
+const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
   accept = ".pdf",
   multiple = false,
   maxFiles = 10,
@@ -21,8 +21,9 @@ const FileUpload = ({
   files,
   title = "Drop your files here",
   description = "or click to browse",
-}: FileUploadProps) => {
+}, ref) => {
   const [isDragging, setIsDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -53,9 +54,16 @@ const FileUpload = ({
         const validFiles = selectedFiles.slice(0, maxFiles - files.length);
         onFilesChange([...files, ...validFiles]);
       }
+
+      // Allow selecting the same file again (some browsers won't fire change otherwise)
+      e.target.value = "";
     },
     [files, maxFiles, onFilesChange]
   );
+
+  const openFileDialog = useCallback(() => {
+    inputRef.current?.click();
+  }, []);
 
   const removeFile = useCallback(
     (index: number) => {
@@ -74,7 +82,7 @@ const FileUpload = ({
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full" ref={ref}>
       <div
         className={cn(
           "relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-12 transition-all duration-300",
@@ -86,13 +94,23 @@ const FileUpload = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onClick={openFileDialog}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openFileDialog();
+          }
+        }}
       >
         <input
           type="file"
           accept={accept}
           multiple={multiple}
           onChange={handleFileInput}
-          className="absolute inset-0 cursor-pointer opacity-0"
+          ref={inputRef}
+          className="sr-only"
         />
         
         <div className="mb-4 rounded-full bg-primary/10 p-4">
@@ -141,6 +159,8 @@ const FileUpload = ({
       )}
     </div>
   );
-};
+});
+
+FileUpload.displayName = "FileUpload";
 
 export default FileUpload;

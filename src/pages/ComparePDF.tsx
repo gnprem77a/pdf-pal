@@ -1,13 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { GitCompare, FileText, ArrowRight } from "lucide-react";
 import ToolLayout from "@/components/ToolLayout";
 import FileUpload from "@/components/FileUpload";
 import { Button } from "@/components/ui/button";
 import ProcessingStatus from "@/components/ProcessingStatus";
-import * as pdfjsLib from "pdfjs-dist";
-
-// Set worker path - use .mjs for ES module compatibility
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+import { pdfjsLib } from "@/lib/pdfjs";
 
 interface DiffResult {
   type: "added" | "removed" | "unchanged";
