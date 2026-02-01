@@ -11,7 +11,8 @@ import * as pdfjsLib from "pdfjs-dist";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Use unpkg CDN for better compatibility with pdfjs-dist v5
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 type ImageFormat = "png" | "jpeg";
 
@@ -48,11 +49,12 @@ const PDFToImage = () => {
         canvas.width = viewport.width;
         canvas.height = viewport.height;
 
-        await page.render({
+        const renderContext = {
           canvasContext: context,
           viewport: viewport,
-          canvas: canvas,
-        }).promise;
+        } as Parameters<typeof page.render>[0];
+        
+        await page.render(renderContext).promise;
 
         const dataUrl = canvas.toDataURL(
           `image/${format}`,
