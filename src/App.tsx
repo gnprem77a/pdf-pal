@@ -16,6 +16,15 @@ import PDFToWord from "./pages/PDFToWord";
 import PDFToImage from "./pages/PDFToImage";
 import OCRPDF from "./pages/OCRPDF";
 import EditPDF from "./pages/EditPDF";
+import ImageToPDF from "./pages/ImageToPDF";
+import PDFToText from "./pages/PDFToText";
+import DeletePages from "./pages/DeletePages";
+import AddPageNumbers from "./pages/AddPageNumbers";
+import PDFMetadata from "./pages/PDFMetadata";
+import ReorderPages from "./pages/ReorderPages";
+import AddHeaderFooter from "./pages/AddHeaderFooter";
+import UnlockPDF from "./pages/UnlockPDF";
+import ESignPDF from "./pages/ESignPDF";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +47,15 @@ const App = () => (
           <Route path="/pdf-to-image" element={<PDFToImage />} />
           <Route path="/ocr-pdf" element={<OCRPDF />} />
           <Route path="/edit-pdf" element={<EditPDF />} />
+          <Route path="/image-to-pdf" element={<ImageToPDF />} />
+          <Route path="/pdf-to-text" element={<PDFToText />} />
+          <Route path="/delete-pages" element={<DeletePages />} />
+          <Route path="/add-page-numbers" element={<AddPageNumbers />} />
+          <Route path="/pdf-metadata" element={<PDFMetadata />} />
+          <Route path="/reorder-pages" element={<ReorderPages />} />
+          <Route path="/add-header-footer" element={<AddHeaderFooter />} />
+          <Route path="/unlock-pdf" element={<UnlockPDF />} />
+          <Route path="/esign-pdf" element={<ESignPDF />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
