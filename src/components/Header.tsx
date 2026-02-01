@@ -1,5 +1,6 @@
 import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const Header = () => {
   return (
@@ -24,9 +25,12 @@ const Header = () => {
           </a>
         </nav>
 
-        <Button className="rounded-full px-6">
-          Get Started
-        </Button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Button className="rounded-full px-6">
+            Get Started
+          </Button>
+        </div>
       </div>
     </header>
   );

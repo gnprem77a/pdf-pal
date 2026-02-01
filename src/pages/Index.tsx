@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
+import RecentFiles from "@/components/RecentFiles";
 import ToolsGrid from "@/components/ToolsGrid";
 import Features from "@/components/Features";
 import CTA from "@/components/CTA";
@@ -11,6 +12,7 @@ const Index = () => {
       <Header />
       <main>
         <Hero />
+        <RecentFiles />
         <ToolsGrid />
         <Features />
         <CTA />

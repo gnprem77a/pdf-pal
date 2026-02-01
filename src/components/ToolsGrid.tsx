@@ -9,7 +9,14 @@ import {
   Stamp,
   FileSearch,
   FileText,
-  FileUp
+  FileUp,
+  Trash2,
+  Hash,
+  ArrowUpDown,
+  AlignVerticalSpaceAround,
+  Info,
+  Unlock,
+  PenTool
 } from "lucide-react";
 import ToolCard from "./ToolCard";
 
@@ -50,9 +57,23 @@ const tools = [
     href: "/word-to-pdf",
   },
   {
+    icon: FileText,
+    title: "PDF to Text",
+    description: "Extract plain text from PDF files.",
+    color: "word" as const,
+    href: "/pdf-to-text",
+  },
+  {
+    icon: Image,
+    title: "Image to PDF",
+    description: "Convert images to PDF format.",
+    color: "image" as const,
+    href: "/image-to-pdf",
+  },
+  {
     icon: Image,
     title: "PDF to Image",
-    description: "Extract images or convert pages to JPG/PNG.",
+    description: "Convert PDF pages to JPG/PNG images.",
     color: "image" as const,
     href: "/pdf-to-image",
   },
@@ -64,6 +85,13 @@ const tools = [
     href: "/protect-pdf",
   },
   {
+    icon: Unlock,
+    title: "Unlock PDF",
+    description: "Remove restrictions from PDF files.",
+    color: "protect" as const,
+    href: "/unlock-pdf",
+  },
+  {
     icon: RotateCw,
     title: "Rotate PDF",
     description: "Rotate PDF pages to the correct orientation.",
@@ -71,11 +99,53 @@ const tools = [
     href: "/rotate-pdf",
   },
   {
+    icon: ArrowUpDown,
+    title: "Reorder Pages",
+    description: "Drag and drop to rearrange PDF pages.",
+    color: "merge" as const,
+    href: "/reorder-pages",
+  },
+  {
+    icon: Trash2,
+    title: "Delete Pages",
+    description: "Remove specific pages from your PDF.",
+    color: "split" as const,
+    href: "/delete-pages",
+  },
+  {
     icon: Stamp,
     title: "Watermark",
     description: "Add text or image watermarks to your PDFs.",
     color: "split" as const,
     href: "/watermark-pdf",
+  },
+  {
+    icon: Hash,
+    title: "Page Numbers",
+    description: "Add page numbers to your PDF documents.",
+    color: "merge" as const,
+    href: "/add-page-numbers",
+  },
+  {
+    icon: AlignVerticalSpaceAround,
+    title: "Header & Footer",
+    description: "Insert headers and footers to your PDFs.",
+    color: "split" as const,
+    href: "/add-header-footer",
+  },
+  {
+    icon: Info,
+    title: "PDF Metadata",
+    description: "Edit PDF document properties.",
+    color: "compress" as const,
+    href: "/pdf-metadata",
+  },
+  {
+    icon: PenTool,
+    title: "E-Sign PDF",
+    description: "Add your signature to PDF documents.",
+    color: "protect" as const,
+    href: "/esign-pdf",
   },
   {
     icon: FileSearch,
@@ -106,7 +176,7 @@ const ToolsGrid = () => {
           </p>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           {tools.map((tool, index) => (
             <ToolCard
               key={tool.title}
@@ -114,7 +184,7 @@ const ToolsGrid = () => {
               title={tool.title}
               description={tool.description}
               color={tool.color}
-              delay={index * 50}
+              delay={index * 30}
               href={tool.href}
             />
           ))}
