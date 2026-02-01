@@ -22,7 +22,7 @@ const MergePDF = () => {
       const mergedBlob = await mergePDFs(files);
       setProgress(80);
       
-      downloadBlob(mergedBlob, "merged.pdf");
+      await downloadBlob(mergedBlob, "merged.pdf");
       setProgress(100);
       setStatus("success");
     } catch (error) {
