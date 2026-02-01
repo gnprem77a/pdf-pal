@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -7,6 +8,7 @@ interface ToolCardProps {
   description: string;
   color: "merge" | "split" | "compress" | "word" | "image" | "protect";
   delay?: number;
+  href: string;
 }
 
 const colorClasses = {
@@ -18,10 +20,11 @@ const colorClasses = {
   protect: "bg-tool-protect",
 };
 
-const ToolCard = ({ icon: Icon, title, description, color, delay = 0 }: ToolCardProps) => {
+const ToolCard = ({ icon: Icon, title, description, color, delay = 0, href }: ToolCardProps) => {
   return (
-    <div
-      className="tool-card group cursor-pointer opacity-0 animate-fade-in"
+    <Link
+      to={href}
+      className="tool-card group cursor-pointer opacity-0 animate-fade-in block"
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className={cn("tool-icon mb-4", colorClasses[color])}>
@@ -39,7 +42,7 @@ const ToolCard = ({ icon: Icon, title, description, color, delay = 0 }: ToolCard
       <div className="mt-4 flex items-center text-sm font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
         Use Tool →
       </div>
-    </div>
+    </Link>
   );
 };
 
