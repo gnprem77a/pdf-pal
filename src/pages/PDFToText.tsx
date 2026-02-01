@@ -6,6 +6,7 @@ import ProcessingStatus from "@/components/ProcessingStatus";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import { downloadBlob } from "@/lib/pdf-utils";
 import * as pdfjsLib from "pdfjs-dist";
 
 // Set worker path - use .mjs for ES module compatibility
@@ -60,14 +61,10 @@ const PDFToText = () => {
     });
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     const blob = new Blob([extractedText], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = files[0]?.name.replace(".pdf", ".txt") || "extracted-text.txt";
-    a.click();
-    URL.revokeObjectURL(url);
+    const filename = files[0]?.name.replace(".pdf", ".txt") || "extracted-text.txt";
+    await downloadBlob(blob, filename);
   };
 
   const handleReset = () => {

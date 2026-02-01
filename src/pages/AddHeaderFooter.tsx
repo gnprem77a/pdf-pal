@@ -61,7 +61,7 @@ const AddHeaderFooter = () => {
       const blob = new Blob([buffer], { type: "application/pdf" });
 
       const originalName = files[0].name.replace(".pdf", "");
-      downloadBlob(blob, `${originalName}-headers.pdf`);
+      await downloadBlob(blob, `${originalName}-headers.pdf`);
 
       setProgress(100);
       setStatus("success");

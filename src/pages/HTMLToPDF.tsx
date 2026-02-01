@@ -56,7 +56,7 @@ const HTMLToPDF = () => {
       setProgress(80);
       
       const pdfBlob = doc.output("blob");
-      downloadBlob(pdfBlob, "converted-html.pdf");
+      await downloadBlob(pdfBlob, "converted-html.pdf");
 
       setProgress(100);
       setStatus("success");

@@ -45,7 +45,7 @@ const CropPDF = () => {
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
       
       const originalName = files[0].name.replace(".pdf", "");
-      downloadBlob(blob, `${originalName}-cropped.pdf`);
+      await downloadBlob(blob, `${originalName}-cropped.pdf`);
 
       setProgress(100);
       setStatus("success");

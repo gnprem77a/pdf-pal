@@ -98,7 +98,7 @@ const ExcelToPDF = () => {
       const pdfBlob = pdf.output("blob");
       
       const originalName = files[0].name.replace(/\.(xls|xlsx)$/i, "");
-      downloadBlob(pdfBlob, `${originalName}.pdf`);
+      await downloadBlob(pdfBlob, `${originalName}.pdf`);
 
       setProgress(100);
       setStatus("success");

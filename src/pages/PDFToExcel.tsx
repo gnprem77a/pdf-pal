@@ -4,6 +4,7 @@ import ToolLayout from "@/components/ToolLayout";
 import FileUpload from "@/components/FileUpload";
 import { Button } from "@/components/ui/button";
 import ProcessingStatus from "@/components/ProcessingStatus";
+import { downloadBlob } from "@/lib/pdf-utils";
 import * as XLSX from "xlsx";
 import * as pdfjsLib from "pdfjs-dist";
 
@@ -117,12 +118,7 @@ const PDFToExcel = () => {
 
       // Download
       const originalName = files[0].name.replace(".pdf", "");
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${originalName}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await downloadBlob(blob, `${originalName}.xlsx`);
 
       setProgress(100);
       setStatus("success");

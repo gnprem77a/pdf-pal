@@ -109,7 +109,7 @@ const ReorderPages = () => {
       const blob = new Blob([buffer], { type: "application/pdf" });
 
       const originalName = files[0].name.replace(".pdf", "");
-      downloadBlob(blob, `${originalName}-reordered.pdf`);
+      await downloadBlob(blob, `${originalName}-reordered.pdf`);
 
       setProgress(100);
       setStatus("success");

@@ -158,16 +158,16 @@ const BatchProcess = () => {
     });
   };
 
-  const handleDownloadSingle = (item: BatchFileItem) => {
+  const handleDownloadSingle = async (item: BatchFileItem) => {
     if (item.result) {
       const name = item.file.name.replace(".pdf", "-compressed.pdf");
-      downloadBlob(item.result, name);
+      await downloadBlob(item.result, name);
     }
   };
 
   const handleDownloadAll = async () => {
     if (operation === "merge" && mergeResult) {
-      downloadBlob(mergeResult, "merged.pdf");
+      await downloadBlob(mergeResult, "merged.pdf");
       return;
     }
 

@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
 import * as pdfjsLib from "pdfjs-dist";
 import JSZip from "jszip";
-import { saveAs } from "file-saver";
+import { downloadBlob } from "@/lib/pdf-utils";
 
 // Use unpkg CDN for better compatibility with pdfjs-dist v5
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
@@ -78,16 +78,15 @@ const PDFToImage = () => {
     }
   };
 
-  const downloadSingle = (image: { name: string; dataUrl: string }) => {
-    const link = document.createElement("a");
-    link.href = image.dataUrl;
-    link.download = image.name;
-    link.click();
+  const downloadSingle = async (image: { name: string; dataUrl: string }) => {
+    const response = await fetch(image.dataUrl);
+    const blob = await response.blob();
+    await downloadBlob(blob, image.name);
   };
 
   const downloadAll = async () => {
     if (generatedImages.length === 1) {
-      downloadSingle(generatedImages[0]);
+      await downloadSingle(generatedImages[0]);
       return;
     }
 
@@ -99,7 +98,7 @@ const PDFToImage = () => {
     }
 
     const zipBlob = await zip.generateAsync({ type: "blob" });
-    saveAs(zipBlob, "pdf-images.zip");
+    await downloadBlob(zipBlob, "pdf-images.zip");
   };
 
   const handleReset = () => {
