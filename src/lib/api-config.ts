@@ -8,19 +8,7 @@ export const API_CONFIG = {
   
   // API endpoints your Go backend should implement
   endpoints: {
-    // Office conversions
-    excelToPdf: "/api/convert/excel-to-pdf",
-    pdfToExcel: "/api/convert/pdf-to-excel",
-    powerpointToPdf: "/api/convert/ppt-to-pdf",
-    pdfToPowerpoint: "/api/convert/pdf-to-ppt",
-    
-    // Security
-    protectPdf: "/api/security/protect",
-    
-    // Archive
-    pdfToPdfa: "/api/convert/pdf-to-pdfa",
-    
-    // PDF Operations (for Android - returns download URL)
+    // PDF Operations
     mergePdf: "/api/pdf/merge",
     splitPdf: "/api/pdf/split",
     compressPdf: "/api/pdf/compress",
@@ -29,18 +17,42 @@ export const API_CONFIG = {
     watermarkPdf: "/api/pdf/watermark",
     deletePages: "/api/pdf/delete-pages",
     reorderPages: "/api/pdf/reorder",
+    
+    // Office conversions
+    excelToPdf: "/api/convert/excel-to-pdf",
+    pdfToExcel: "/api/convert/pdf-to-excel",
+    wordToPdf: "/api/convert/word-to-pdf",
+    pdfToWord: "/api/convert/pdf-to-word",
+    powerpointToPdf: "/api/convert/ppt-to-pdf",
+    pdfToPowerpoint: "/api/convert/pdf-to-ppt",
+    
+    // Image conversions
+    imageToPdf: "/api/convert/image-to-pdf",
+    pdfToImage: "/api/convert/pdf-to-image",
+    htmlToPdf: "/api/convert/html-to-pdf",
+    
+    // Advanced features
+    ocrPdf: "/api/pdf/ocr",
+    cropPdf: "/api/pdf/crop",
+    editPdf: "/api/pdf/edit",
+    signPdf: "/api/pdf/sign",
+    scanToPdf: "/api/pdf/scan-to-pdf",
+    repairPdf: "/api/pdf/repair",
+    redactPdf: "/api/pdf/redact",
+    unlockPdf: "/api/pdf/unlock",
+    protectPdf: "/api/security/protect",
+    addPageNumbers: "/api/pdf/add-page-numbers",
+    addHeaderFooter: "/api/pdf/add-header-footer",
+    pdfMetadata: "/api/pdf/metadata",
+    pdfToText: "/api/convert/pdf-to-text",
+    batchProcess: "/api/pdf/batch",
+    
+    // Archive
+    pdfToPdfa: "/api/convert/pdf-to-pdfa",
   },
 };
 
 // Helper to get full URL
 export const getApiUrl = (endpoint: keyof typeof API_CONFIG.endpoints): string => {
   return `${API_CONFIG.baseUrl}${API_CONFIG.endpoints[endpoint]}`;
-};
-
-// Check if we should use backend processing (for Android WebView)
-export const shouldUseBackendProcessing = (): boolean => {
-  const ua = navigator.userAgent.toLowerCase();
-  const isAndroidWebView = ua.includes('wv') || (ua.includes('android') && ua.includes('version/'));
-  const isIOSWebView = /(iphone|ipod|ipad).*applewebkit(?!.*safari)/i.test(navigator.userAgent);
-  return isAndroidWebView || isIOSWebView;
 };

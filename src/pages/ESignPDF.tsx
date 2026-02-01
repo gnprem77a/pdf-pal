@@ -5,8 +5,10 @@ import FileUpload from "@/components/FileUpload";
 import ProcessingStatus from "@/components/ProcessingStatus";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { downloadBlob } from "@/lib/pdf-utils";
-import { PDFDocument } from "pdf-lib";
+import { useBackendPdf, getBaseName } from "@/hooks/use-backend-pdf";
+import { getApiUrl } from "@/lib/api-config";
+import { triggerDownload } from "@/hooks/use-backend-pdf";
+import { toast } from "sonner";
 
 const ESignPDF = () => {
   const [files, setFiles] = useState<File[]>([]);
@@ -69,43 +71,44 @@ const ESignPDF = () => {
     if (files.length === 0 || !signatureData) return;
 
     setStatus("processing");
-    setProgress(0);
+    setProgress(10);
 
     try {
-      const arrayBuffer = await files[0].arrayBuffer();
+      const formData = new FormData();
+      formData.append("file0", files[0]);
+      formData.append("fileCount", "1");
+      formData.append("signature", signatureData);
+
       setProgress(30);
 
-      const pdf = await PDFDocument.load(arrayBuffer);
-      
-      // Embed signature image
-      const signatureImage = await pdf.embedPng(signatureData);
-      const signatureDims = signatureImage.scale(0.5);
-
-      // Add signature to first page
-      const pages = pdf.getPages();
-      const firstPage = pages[0];
-      const { height } = firstPage.getSize();
-
-      firstPage.drawImage(signatureImage, {
-        x: 50,
-        y: height - signatureDims.height - 100,
-        width: signatureDims.width,
-        height: signatureDims.height,
+      const response = await fetch(getApiUrl("signPdf"), {
+        method: "POST",
+        body: formData,
       });
 
-      setProgress(80);
-      const pdfBytes = await pdf.save();
-      const buffer = new ArrayBuffer(pdfBytes.length);
-      new Uint8Array(buffer).set(pdfBytes);
-      const blob = new Blob([buffer], { type: "application/pdf" });
+      setProgress(70);
 
-      const originalName = files[0].name.replace(".pdf", "");
-      await downloadBlob(blob, `${originalName}-signed.pdf`);
+      if (!response.ok) {
+        throw new Error("Signing failed");
+      }
+
+      const result = await response.json();
+      
+      if (!result.downloadUrl) {
+        throw new Error("No download URL returned");
+      }
+
+      setProgress(90);
+      const baseName = getBaseName(files[0].name);
+      triggerDownload(result.downloadUrl, `${baseName}-signed.pdf`);
 
       setProgress(100);
       setStatus("success");
     } catch (error) {
       console.error("Sign error:", error);
+      toast.error("Signing failed", {
+        description: error instanceof Error ? error.message : "Please check your backend server",
+      });
       setStatus("error");
     }
   };
@@ -180,11 +183,11 @@ const ESignPDF = () => {
       ) : (
         <>
           <ProcessingStatus
-            status={status}
+            status={status === "processing" ? "processing" : status}
             progress={progress}
             message={
               status === "success"
-                ? "Your signed PDF has been downloaded!"
+                ? "Your signed PDF is ready for download!"
                 : "Adding signature..."
             }
           />

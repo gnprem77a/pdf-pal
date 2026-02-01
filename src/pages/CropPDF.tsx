@@ -6,60 +6,34 @@ import ProcessingStatus from "@/components/ProcessingStatus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PDFDocument } from "pdf-lib";
-import { downloadBlob } from "@/lib/pdf-utils";
+import { useBackendPdf, getBaseName } from "@/hooks/use-backend-pdf";
 
 const CropPDF = () => {
   const [files, setFiles] = useState<File[]>([]);
-  const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
-  const [progress, setProgress] = useState(0);
   const [margins, setMargins] = useState({ top: 50, right: 50, bottom: 50, left: 50 });
+
+  const { status, progress, processFiles, reset } = useBackendPdf();
 
   const handleCrop = async () => {
     if (files.length === 0) return;
-
-    setStatus("processing");
-    setProgress(0);
-
-    try {
-      setProgress(20);
-      const arrayBuffer = await files[0].arrayBuffer();
-      const pdfDoc = await PDFDocument.load(arrayBuffer);
-
-      setProgress(40);
-      
-      const pages = pdfDoc.getPages();
-      for (const page of pages) {
-        const { width, height } = page.getSize();
-        page.setCropBox(
-          margins.left,
-          margins.bottom,
-          width - margins.left - margins.right,
-          height - margins.top - margins.bottom
-        );
-      }
-
-      setProgress(80);
-      
-      const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
-      
-      const originalName = files[0].name.replace(".pdf", "");
-      await downloadBlob(blob, `${originalName}-cropped.pdf`);
-
-      setProgress(100);
-      setStatus("success");
-    } catch (error) {
-      console.error("Crop error:", error);
-      setStatus("error");
-    }
+    const baseName = getBaseName(files[0].name);
+    await processFiles(
+      "cropPdf",
+      files,
+      { 
+        top: margins.top.toString(),
+        right: margins.right.toString(),
+        bottom: margins.bottom.toString(),
+        left: margins.left.toString(),
+      },
+      `${baseName}-cropped.pdf`
+    );
   };
 
   const handleReset = () => {
     setFiles([]);
-    setStatus("idle");
-    setProgress(0);
     setMargins({ top: 50, right: 50, bottom: 50, left: 50 });
+    reset();
   };
 
   return (
@@ -134,7 +108,7 @@ const CropPDF = () => {
             progress={progress}
             message={
               status === "success"
-                ? "Your cropped PDF has been downloaded!"
+                ? "Your cropped PDF is ready for download!"
                 : "Cropping PDF..."
             }
           />

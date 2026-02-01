@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Trash2, X } from "lucide-react";
 import ToolLayout from "@/components/ToolLayout";
 import FileUpload from "@/components/FileUpload";
 import ProcessingStatus from "@/components/ProcessingStatus";
 import { Button } from "@/components/ui/button";
-import { downloadBlob } from "@/lib/pdf-utils";
-import { PDFDocument } from "pdf-lib";
+import { useBackendPdf, getBaseName } from "@/hooks/use-backend-pdf";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
@@ -14,12 +13,12 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 const DeletePages = () => {
   const [files, setFiles] = useState<File[]>([]);
-  const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
-  const [progress, setProgress] = useState(0);
   const [pageCount, setPageCount] = useState(0);
   const [selectedPages, setSelectedPages] = useState<number[]>([]);
   const [pageThumbnails, setPageThumbnails] = useState<string[]>([]);
   const [loadingThumbnails, setLoadingThumbnails] = useState(false);
+
+  const { status, progress, processFiles, reset } = useBackendPdf();
 
   const generateThumbnails = async (file: File) => {
     setLoadingThumbnails(true);
@@ -82,52 +81,21 @@ const DeletePages = () => {
       return;
     }
 
-    setStatus("processing");
-    setProgress(0);
-
-    try {
-      const arrayBuffer = await files[0].arrayBuffer();
-      setProgress(30);
-
-      const pdf = await PDFDocument.load(arrayBuffer);
-      const newPdf = await PDFDocument.create();
-
-      // Get pages to keep (not selected for deletion)
-      const pagesToKeep = [];
-      for (let i = 0; i < pageCount; i++) {
-        if (!selectedPages.includes(i + 1)) {
-          pagesToKeep.push(i);
-        }
-      }
-
-      setProgress(50);
-      const copiedPages = await newPdf.copyPages(pdf, pagesToKeep);
-      copiedPages.forEach((page) => newPdf.addPage(page));
-
-      setProgress(80);
-      const pdfBytes = await newPdf.save();
-      const buffer = new ArrayBuffer(pdfBytes.length);
-      new Uint8Array(buffer).set(pdfBytes);
-      const blob = new Blob([buffer], { type: "application/pdf" });
-
-      const originalName = files[0].name.replace(".pdf", "");
-      await downloadBlob(blob, `${originalName}-modified.pdf`);
-
-      setProgress(100);
-      setStatus("success");
-    } catch (error) {
-      console.error("Delete pages error:", error);
-      setStatus("error");
-    }
+    const baseName = getBaseName(files[0].name);
+    await processFiles(
+      "deletePages",
+      files,
+      { pages: JSON.stringify(selectedPages) },
+      `${baseName}-modified.pdf`
+    );
   };
 
   const handleReset = () => {
     setFiles([]);
-    setStatus("idle");
-    setProgress(0);
     setPageCount(0);
     setSelectedPages([]);
     setPageThumbnails([]);
+    reset();
   };
 
   return (
@@ -227,8 +195,8 @@ const DeletePages = () => {
             progress={progress}
             message={
               status === "success"
-                ? "Your modified PDF has been downloaded!"
-                : "Removing pages..."
+                ? "Your modified PDF is ready for download!"
+                : "Uploading and removing pages..."
             }
           />
 

@@ -4,37 +4,20 @@ import ToolLayout from "@/components/ToolLayout";
 import FileUpload from "@/components/FileUpload";
 import ProcessingStatus from "@/components/ProcessingStatus";
 import { Button } from "@/components/ui/button";
-import { mergePDFs, downloadBlob } from "@/lib/pdf-utils";
+import { useBackendPdf } from "@/hooks/use-backend-pdf";
 
 const MergePDF = () => {
   const [files, setFiles] = useState<File[]>([]);
-  const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
-  const [progress, setProgress] = useState(0);
+  const { status, progress, processFiles, reset } = useBackendPdf();
 
   const handleMerge = async () => {
     if (files.length < 2) return;
-
-    setStatus("processing");
-    setProgress(0);
-
-    try {
-      setProgress(30);
-      const mergedBlob = await mergePDFs(files);
-      setProgress(80);
-      
-      await downloadBlob(mergedBlob, "merged.pdf");
-      setProgress(100);
-      setStatus("success");
-    } catch (error) {
-      console.error("Merge error:", error);
-      setStatus("error");
-    }
+    await processFiles("mergePdf", files, undefined, "merged.pdf");
   };
 
   const handleReset = () => {
     setFiles([]);
-    setStatus("idle");
-    setProgress(0);
+    reset();
   };
 
   return (
@@ -76,8 +59,8 @@ const MergePDF = () => {
             progress={progress}
             message={
               status === "success"
-                ? "Your merged PDF has been downloaded!"
-                : "Combining your PDFs..."
+                ? "Your merged PDF is ready for download!"
+                : "Uploading and merging your PDFs..."
             }
           />
 

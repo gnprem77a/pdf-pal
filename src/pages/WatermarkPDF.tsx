@@ -6,41 +6,29 @@ import ProcessingStatus from "@/components/ProcessingStatus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { addWatermark, downloadBlob } from "@/lib/pdf-utils";
+import { useBackendPdf, getBaseName } from "@/hooks/use-backend-pdf";
 
 const WatermarkPDF = () => {
   const [files, setFiles] = useState<File[]>([]);
-  const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
-  const [progress, setProgress] = useState(0);
   const [watermarkText, setWatermarkText] = useState("CONFIDENTIAL");
+
+  const { status, progress, processFiles, reset } = useBackendPdf();
 
   const handleWatermark = async () => {
     if (files.length === 0 || !watermarkText.trim()) return;
-
-    setStatus("processing");
-    setProgress(0);
-
-    try {
-      setProgress(30);
-      const watermarkedBlob = await addWatermark(files[0], watermarkText);
-      setProgress(80);
-
-      const originalName = files[0].name.replace(".pdf", "");
-      await downloadBlob(watermarkedBlob, `${originalName}-watermarked.pdf`);
-      
-      setProgress(100);
-      setStatus("success");
-    } catch (error) {
-      console.error("Watermark error:", error);
-      setStatus("error");
-    }
+    const baseName = getBaseName(files[0].name);
+    await processFiles(
+      "watermarkPdf",
+      files,
+      { text: watermarkText },
+      `${baseName}-watermarked.pdf`
+    );
   };
 
   const handleReset = () => {
     setFiles([]);
-    setStatus("idle");
-    setProgress(0);
     setWatermarkText("CONFIDENTIAL");
+    reset();
   };
 
   return (
@@ -91,8 +79,8 @@ const WatermarkPDF = () => {
             progress={progress}
             message={
               status === "success"
-                ? "Your watermarked PDF has been downloaded!"
-                : "Adding watermark..."
+                ? "Your watermarked PDF is ready for download!"
+                : "Uploading and adding watermark..."
             }
           />
 

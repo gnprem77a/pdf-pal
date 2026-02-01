@@ -6,77 +6,31 @@ import ProcessingStatus from "@/components/ProcessingStatus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { downloadBlob } from "@/lib/pdf-utils";
-import { PDFDocument, rgb } from "pdf-lib";
+import { useBackendPdf, getBaseName } from "@/hooks/use-backend-pdf";
 
 const AddHeaderFooter = () => {
   const [files, setFiles] = useState<File[]>([]);
-  const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
-  const [progress, setProgress] = useState(0);
   const [header, setHeader] = useState("");
   const [footer, setFooter] = useState("");
 
+  const { status, progress, processFiles, reset } = useBackendPdf();
+
   const handleAdd = async () => {
     if (files.length === 0 || (!header && !footer)) return;
-
-    setStatus("processing");
-    setProgress(0);
-
-    try {
-      const arrayBuffer = await files[0].arrayBuffer();
-      setProgress(30);
-
-      const pdf = await PDFDocument.load(arrayBuffer);
-      const pages = pdf.getPages();
-
-      setProgress(50);
-
-      pages.forEach((page) => {
-        const { width, height } = page.getSize();
-        const fontSize = 10;
-
-        if (header) {
-          page.drawText(header, {
-            x: width / 2 - (header.length * fontSize) / 4,
-            y: height - 25,
-            size: fontSize,
-            color: rgb(0.3, 0.3, 0.3),
-          });
-        }
-
-        if (footer) {
-          page.drawText(footer, {
-            x: width / 2 - (footer.length * fontSize) / 4,
-            y: 20,
-            size: fontSize,
-            color: rgb(0.3, 0.3, 0.3),
-          });
-        }
-      });
-
-      setProgress(80);
-      const pdfBytes = await pdf.save();
-      const buffer = new ArrayBuffer(pdfBytes.length);
-      new Uint8Array(buffer).set(pdfBytes);
-      const blob = new Blob([buffer], { type: "application/pdf" });
-
-      const originalName = files[0].name.replace(".pdf", "");
-      await downloadBlob(blob, `${originalName}-headers.pdf`);
-
-      setProgress(100);
-      setStatus("success");
-    } catch (error) {
-      console.error("Header/footer error:", error);
-      setStatus("error");
-    }
+    const baseName = getBaseName(files[0].name);
+    await processFiles(
+      "addHeaderFooter",
+      files,
+      { header, footer },
+      `${baseName}-headers.pdf`
+    );
   };
 
   const handleReset = () => {
     setFiles([]);
-    setStatus("idle");
-    setProgress(0);
     setHeader("");
     setFooter("");
+    reset();
   };
 
   return (
@@ -137,7 +91,7 @@ const AddHeaderFooter = () => {
             progress={progress}
             message={
               status === "success"
-                ? "Your PDF with headers/footers has been downloaded!"
+                ? "Your PDF is ready for download!"
                 : "Adding headers and footers..."
             }
           />

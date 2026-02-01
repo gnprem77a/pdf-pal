@@ -6,8 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import ProcessingStatus from "@/components/ProcessingStatus";
-import { jsPDF } from "jspdf";
-import { downloadBlob } from "@/lib/pdf-utils";
+import { useBackendPdf } from "@/hooks/use-backend-pdf";
+import { getApiUrl } from "@/lib/api-config";
+import { triggerDownload } from "@/hooks/use-backend-pdf";
+import { toast } from "sonner";
 
 const HTMLToPDF = () => {
   const [htmlContent, setHtmlContent] = useState("<h1>Hello World</h1>\n<p>This is a sample HTML content.</p>");
@@ -17,51 +19,46 @@ const HTMLToPDF = () => {
 
   const handleConvert = async () => {
     setStatus("processing");
-    setProgress(0);
+    setProgress(10);
 
     try {
-      setProgress(30);
+      const formData = new FormData();
       
-      // Create a temporary div to render HTML
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = htmlContent;
-      tempDiv.style.width = "595px"; // A4 width in points
-      tempDiv.style.padding = "40px";
-      tempDiv.style.fontFamily = "Arial, sans-serif";
-      document.body.appendChild(tempDiv);
-
-      setProgress(50);
-      
-      const doc = new jsPDF("p", "pt", "a4");
-      
-      // Simple text extraction and formatting
-      const text = tempDiv.innerText;
-      const lines = doc.splitTextToSize(text, 515);
-      
-      let y = 40;
-      const lineHeight = 16;
-      const pageHeight = doc.internal.pageSize.getHeight();
-      
-      for (const line of lines) {
-        if (y + lineHeight > pageHeight - 40) {
-          doc.addPage();
-          y = 40;
-        }
-        doc.text(line, 40, y);
-        y += lineHeight;
+      if (url.trim()) {
+        formData.append("url", url);
+      } else {
+        formData.append("html", htmlContent);
       }
 
-      document.body.removeChild(tempDiv);
+      setProgress(30);
 
-      setProgress(80);
+      const response = await fetch(getApiUrl("htmlToPdf"), {
+        method: "POST",
+        body: formData,
+      });
+
+      setProgress(70);
+
+      if (!response.ok) {
+        throw new Error("Conversion failed");
+      }
+
+      const result = await response.json();
       
-      const pdfBlob = doc.output("blob");
-      await downloadBlob(pdfBlob, "converted-html.pdf");
+      if (!result.downloadUrl) {
+        throw new Error("No download URL returned");
+      }
+
+      setProgress(90);
+      triggerDownload(result.downloadUrl, "converted-html.pdf");
 
       setProgress(100);
       setStatus("success");
     } catch (error) {
       console.error("Conversion error:", error);
+      toast.error("Conversion failed", {
+        description: error instanceof Error ? error.message : "Please check your backend server",
+      });
       setStatus("error");
     }
   };
@@ -87,10 +84,9 @@ const HTMLToPDF = () => {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com"
-              disabled
             />
             <p className="text-xs text-muted-foreground">
-              URL conversion requires backend support. Use HTML input below instead.
+              Enter a URL to convert, or use the HTML editor below.
             </p>
           </div>
 
@@ -102,6 +98,7 @@ const HTMLToPDF = () => {
               onChange={(e) => setHtmlContent(e.target.value)}
               placeholder="Enter your HTML content..."
               className="min-h-[200px] font-mono text-sm"
+              disabled={!!url.trim()}
             />
           </div>
 
@@ -110,7 +107,7 @@ const HTMLToPDF = () => {
               size="lg" 
               onClick={handleConvert} 
               className="px-8"
-              disabled={!htmlContent.trim()}
+              disabled={!htmlContent.trim() && !url.trim()}
             >
               Convert to PDF
             </Button>
@@ -123,7 +120,7 @@ const HTMLToPDF = () => {
             progress={progress}
             message={
               status === "success"
-                ? "Your PDF has been downloaded!"
+                ? "Your PDF is ready for download!"
                 : "Converting HTML to PDF..."
             }
           />
