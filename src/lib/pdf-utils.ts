@@ -5,6 +5,30 @@ import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { toast } from "sonner";
 
+// Detect if running in a native Android/iOS WebView
+// This works even when loading from a remote URL
+function isRunningInNativeApp(): boolean {
+  // Check Capacitor's detection first
+  if (Capacitor.isNativePlatform()) {
+    return true;
+  }
+  
+  // Fallback: Check user agent for Android WebView or iOS WebView
+  const ua = navigator.userAgent.toLowerCase();
+  const isAndroidWebView = ua.includes('wv') || (ua.includes('android') && ua.includes('version/'));
+  const isIOSWebView = /(iphone|ipod|ipad).*applewebkit(?!.*safari)/i.test(navigator.userAgent);
+  
+  // Also check for Capacitor's custom platform setting
+  const windowWithCapacitor = window as typeof window & { CapacitorCustomPlatform?: string };
+  if (windowWithCapacitor.CapacitorCustomPlatform) {
+    return true;
+  }
+  
+  console.log("[isRunningInNativeApp] UA check - Android WebView:", isAndroidWebView, "iOS WebView:", isIOSWebView);
+  
+  return isAndroidWebView || isIOSWebView;
+}
+
 // Helper to convert Uint8Array to Blob
 function uint8ArrayToBlob(data: Uint8Array, type: string): Blob {
   // Create a new ArrayBuffer copy to avoid SharedArrayBuffer issues
@@ -170,35 +194,71 @@ export async function downloadBlob(blob: Blob, filename: string) {
   console.log("[downloadBlob] Starting download for:", filename);
   console.log("[downloadBlob] Capacitor.isNativePlatform():", Capacitor.isNativePlatform());
   console.log("[downloadBlob] Capacitor.getPlatform():", Capacitor.getPlatform());
+  console.log("[downloadBlob] isRunningInNativeApp():", isRunningInNativeApp());
+  console.log("[downloadBlob] User Agent:", navigator.userAgent);
   console.log("[downloadBlob] Blob size:", blob.size);
   
+  const isNative = isRunningInNativeApp();
+  
   // Check if running on native platform (Android/iOS)
-  if (Capacitor.isNativePlatform()) {
+  if (isNative) {
+    console.log("[downloadBlob] Detected native app environment");
+    
+    // Try using Capacitor Filesystem if available
     try {
       console.log("[downloadBlob] Converting blob to base64...");
       const base64Data = await blobToBase64(blob);
       console.log("[downloadBlob] Base64 conversion complete, length:", base64Data.length);
       
-      // Save to Downloads directory on Android, Documents on iOS
-      console.log("[downloadBlob] Writing file to Documents directory...");
-      const result = await Filesystem.writeFile({
-        path: filename,
-        data: base64Data,
-        directory: Directory.Documents,
-        recursive: true,
-      });
+      // Check if Filesystem plugin is available
+      if (typeof Filesystem?.writeFile === 'function') {
+        console.log("[downloadBlob] Filesystem plugin available, writing file...");
+        const result = await Filesystem.writeFile({
+          path: filename,
+          data: base64Data,
+          directory: Directory.Documents,
+          recursive: true,
+        });
+        
+        console.log("[downloadBlob] File saved successfully to:", result.uri);
+        toast.success(`File saved: ${filename}`, {
+          description: `Saved to: ${result.uri}`,
+          duration: 5000,
+        });
+        return;
+      } else {
+        console.log("[downloadBlob] Filesystem plugin not available, falling back to data URL download");
+      }
+    } catch (error) {
+      console.error("[downloadBlob] Filesystem write failed:", error);
+      // Fall through to alternative download method
+    }
+    
+    // Fallback: Create a download link with data URL
+    try {
+      console.log("[downloadBlob] Attempting data URL download fallback...");
+      const base64Data = await blobToBase64(blob);
+      const mimeType = blob.type || 'application/octet-stream';
+      const dataUrl = `data:${mimeType};base64,${base64Data}`;
       
-      console.log("[downloadBlob] File saved successfully to:", result.uri);
-      toast.success(`File saved: ${filename}`, {
-        description: `Saved to: ${result.uri}`,
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`File downloaded: ${filename}`, {
         duration: 5000,
       });
-    } catch (error) {
-      console.error("[downloadBlob] Failed to save file:", error);
+      return;
+    } catch (fallbackError) {
+      console.error("[downloadBlob] Data URL fallback failed:", fallbackError);
       toast.error("Failed to save file", {
-        description: error instanceof Error ? error.message : "Unknown error",
+        description: fallbackError instanceof Error ? fallbackError.message : "Unknown error",
       });
-      throw error;
+      throw fallbackError;
     }
   } else {
     console.log("[downloadBlob] Using web download (saveAs)");
