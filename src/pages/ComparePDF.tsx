@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import ProcessingStatus from "@/components/ProcessingStatus";
 import * as pdfjsLib from "pdfjs-dist";
 
-// Set worker path
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set worker path - use .mjs for ES module compatibility
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 interface DiffResult {
   type: "added" | "removed" | "unchanged";
