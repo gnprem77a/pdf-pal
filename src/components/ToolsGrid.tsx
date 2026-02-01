@@ -16,7 +16,8 @@ import {
   AlignVerticalSpaceAround,
   Info,
   Unlock,
-  PenTool
+  PenTool,
+  Layers
 } from "lucide-react";
 import ToolCard from "./ToolCard";
 
@@ -164,6 +165,14 @@ const tools = [
     description: "Add text and annotations.",
     color: "word" as const,
     href: "/edit-pdf",
+  },
+  // Batch & Advanced
+  {
+    icon: Layers,
+    title: "Batch Process",
+    description: "Process multiple PDFs at once.",
+    color: "merge" as const,
+    href: "/batch-process",
   },
 ];
 
