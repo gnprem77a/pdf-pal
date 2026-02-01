@@ -1,22 +1,19 @@
-import { useState, useEffect } from "react";
-import { Presentation, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { Presentation } from "lucide-react";
 import ToolLayout from "@/components/ToolLayout";
 import FileUpload from "@/components/FileUpload";
 import { Button } from "@/components/ui/button";
 import ProcessingStatus from "@/components/ProcessingStatus";
-import { convertPdfToPowerpoint, checkBackendHealth } from "@/lib/api-service";
-import { API_CONFIG } from "@/lib/api-config";
+import * as pdfjsLib from "pdfjs-dist";
+import pptxgen from "pptxgenjs";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const PDFToPowerPoint = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
-  const [backendConnected, setBackendConnected] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    checkBackendHealth().then(setBackendConnected);
-  }, []);
 
   const handleConvert = async () => {
     if (files.length === 0) return;
@@ -26,22 +23,46 @@ const PDFToPowerPoint = () => {
     setErrorMessage("");
 
     try {
-      setProgress(30);
-      const result = await convertPdfToPowerpoint(files[0]);
-      
-      if (!result.success || !result.data) {
-        throw new Error(result.error || "Conversion failed");
+      const arrayBuffer = await files[0].arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      setProgress(20);
+
+      const pptx = new pptxgen();
+      pptx.layout = "LAYOUT_16x9";
+
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        
+        // Render page to canvas
+        const viewport = page.getViewport({ scale: 2 });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d")!;
+
+        await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+        
+        // Convert canvas to base64 image
+        const imageData = canvas.toDataURL("image/jpeg", 0.9);
+
+        // Add slide with the page image
+        const slide = pptx.addSlide();
+        slide.addImage({
+          data: imageData,
+          x: 0,
+          y: 0,
+          w: "100%",
+          h: "100%",
+        });
+
+        setProgress(20 + (pageNum / pdf.numPages) * 70);
       }
 
-      setProgress(80);
-      const originalName = files[0].name.replace(".pdf", "");
+      setProgress(95);
       
-      const url = URL.createObjectURL(result.data);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${originalName}.pptx`;
-      a.click();
-      URL.revokeObjectURL(url);
+      // Generate and download
+      const originalName = files[0].name.replace(".pdf", "");
+      await pptx.writeFile({ fileName: `${originalName}.pptx` });
 
       setProgress(100);
       setStatus("success");
@@ -66,46 +87,10 @@ const PDFToPowerPoint = () => {
       icon={Presentation}
       color="image"
     >
-      {/* Backend status banner */}
-      <div className={`mb-4 rounded-lg border p-4 ${
-        backendConnected === false 
-          ? "border-yellow-500/30 bg-yellow-500/10" 
-          : backendConnected === true 
-          ? "border-green-500/30 bg-green-500/10"
-          : "border-muted bg-muted/50"
-      }`}>
-        <div className="flex items-start gap-3">
-          <AlertCircle className={`mt-0.5 h-5 w-5 ${
-            backendConnected === false 
-              ? "text-yellow-600" 
-              : backendConnected === true 
-              ? "text-green-600"
-              : "text-muted-foreground"
-          }`} />
-          <div className="text-sm">
-            {backendConnected === null && (
-              <p className="text-muted-foreground">Checking backend connection...</p>
-            )}
-            {backendConnected === false && (
-              <>
-                <p className="font-medium text-yellow-700 dark:text-yellow-300">
-                  Backend not connected
-                </p>
-                <p className="text-yellow-600 dark:text-yellow-400">
-                  Your Go backend at <code className="rounded bg-yellow-200/50 px-1">{API_CONFIG.baseUrl}</code> is not responding.
-                </p>
-                <p className="mt-1 text-yellow-600 dark:text-yellow-400">
-                  Set <code className="rounded bg-yellow-200/50 px-1">VITE_API_URL</code> environment variable to your API URL.
-                </p>
-              </>
-            )}
-            {backendConnected === true && (
-              <p className="text-green-700 dark:text-green-300">
-                ✓ Connected to backend at <code className="rounded bg-green-200/50 px-1">{API_CONFIG.baseUrl}</code>
-              </p>
-            )}
-          </div>
-        </div>
+      <div className="mb-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-4">
+        <p className="text-sm text-blue-700 dark:text-blue-300">
+          <strong>Client-side conversion:</strong> Each PDF page becomes a slide image. Text won't be editable in the resulting PowerPoint.
+        </p>
       </div>
 
       {status === "idle" || status === "error" ? (
@@ -125,12 +110,7 @@ const PDFToPowerPoint = () => {
 
           {files.length > 0 && (
             <div className="mt-6 flex justify-center">
-              <Button 
-                size="lg" 
-                onClick={handleConvert} 
-                className="px-8"
-                disabled={backendConnected === false}
-              >
+              <Button size="lg" onClick={handleConvert} className="px-8">
                 Convert to PowerPoint
               </Button>
             </div>
