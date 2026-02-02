@@ -34,9 +34,7 @@ export const API_CONFIG = {
     // Advanced features
     ocrPdf: "/api/pdf/ocr",
     cropPdf: "/api/pdf/crop",
-    editPdf: "/api/pdf/edit",
     signPdf: "/api/pdf/sign",
-    scanToPdf: "/api/pdf/scan-to-pdf",
     repairPdf: "/api/pdf/repair",
     redactPdf: "/api/pdf/redact",
     unlockPdf: "/api/pdf/unlock",
@@ -45,6 +43,7 @@ export const API_CONFIG = {
     addHeaderFooter: "/api/pdf/add-header-footer",
     pdfMetadata: "/api/pdf/metadata",
     pdfToText: "/api/convert/pdf-to-text",
+    comparePdf: "/api/pdf/compare",
     batchProcess: "/api/pdf/batch",
     
     // Archive

@@ -645,14 +645,24 @@ func handleAddPageNumbers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	position := r.FormValue("position")
-	if position == "" {
-		position = "bc" // bottom center
+	// Map frontend positions to pdfcpu anchor positions
+	posMap := map[string]string{
+		"bottom-center": "bc",
+		"bottom-left":   "bl",
+		"bottom-right":  "br",
+		"top-center":    "tc",
+		"top-left":      "tl",
+		"top-right":     "tr",
+	}
+	pos, ok := posMap[position]
+	if !ok {
+		pos = "bc" // default to bottom center
 	}
 
 	outputPath := generateOutputPath("numbered", ".pdf")
 
-	// Add page numbers using AddTextWatermarksFile
-	err = api.AddTextWatermarksFile(inputPath, outputPath, nil, true, "%p", fmt.Sprintf("font:Helvetica, scale:0.5, pos:%s", position), nil)
+	// Add page numbers using absolute font size (no scale)
+	err = api.AddTextWatermarksFile(inputPath, outputPath, nil, true, "%p", fmt.Sprintf("font:Helvetica, points:10, pos:%s", pos), nil)
 	if err != nil {
 		sendError(w, fmt.Sprintf("Add page numbers failed: %v", err), http.StatusInternalServerError)
 		return
@@ -682,9 +692,9 @@ func handleAddHeaderFooter(w http.ResponseWriter, r *http.Request) {
 	outputPath := generateOutputPath("header-footer", ".pdf")
 	currentInput := inputPath
 
-	// Add header if provided
+	// Add header if provided (using absolute font size)
 	if header != "" {
-		err = api.AddTextWatermarksFile(currentInput, outputPath, nil, true, header, "font:Helvetica, scale:0.5, pos:tc, offset:0 20", nil)
+		err = api.AddTextWatermarksFile(currentInput, outputPath, nil, true, header, "font:Helvetica, points:10, pos:tc, offset:0 20", nil)
 		if err != nil {
 			log.Printf("Header addition warning: %v", err)
 			copyFile(inputPath, outputPath)
@@ -692,11 +702,11 @@ func handleAddHeaderFooter(w http.ResponseWriter, r *http.Request) {
 		currentInput = outputPath
 	}
 
-	// Add footer if provided
+	// Add footer if provided (using absolute font size)
 	if footer != "" {
 		if header != "" {
 			tempOutput := generateOutputPath("header-footer-temp", ".pdf")
-			err = api.AddTextWatermarksFile(currentInput, tempOutput, nil, true, footer, "font:Helvetica, scale:0.5, pos:bc, offset:0 -20", nil)
+			err = api.AddTextWatermarksFile(currentInput, tempOutput, nil, true, footer, "font:Helvetica, points:10, pos:bc, offset:0 -20", nil)
 			if err != nil {
 				log.Printf("Footer addition warning: %v", err)
 			} else {
@@ -704,7 +714,7 @@ func handleAddHeaderFooter(w http.ResponseWriter, r *http.Request) {
 			}
 			os.Remove(tempOutput)
 		} else {
-			err = api.AddTextWatermarksFile(currentInput, outputPath, nil, true, footer, "font:Helvetica, scale:0.5, pos:bc, offset:0 -20", nil)
+			err = api.AddTextWatermarksFile(currentInput, outputPath, nil, true, footer, "font:Helvetica, points:10, pos:bc, offset:0 -20", nil)
 			if err != nil {
 				log.Printf("Footer addition warning: %v", err)
 				copyFile(inputPath, outputPath)
