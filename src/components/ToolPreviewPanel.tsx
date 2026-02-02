@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, FileText, Maximize2, Minimize2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { pdfjsLib } from "@/lib/pdfjs";
 import { cn } from "@/lib/utils";
@@ -15,8 +15,6 @@ const ToolPreviewPanel = ({ file, className }: ToolPreviewPanelProps) => {
   const [totalPages, setTotalPages] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!file) {
@@ -33,9 +31,8 @@ const ToolPreviewPanel = ({ file, className }: ToolPreviewPanelProps) => {
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         setTotalPages(pdf.numPages);
 
-        // Render all pages for full preview
         const images: string[] = [];
-        const pagesToRender = Math.min(pdf.numPages, 20); // Limit to 20 pages for performance
+        const pagesToRender = Math.min(pdf.numPages, 20);
 
         for (let i = 1; i <= pagesToRender; i++) {
           const page = await pdf.getPage(i);
@@ -87,16 +84,13 @@ const ToolPreviewPanel = ({ file, className }: ToolPreviewPanelProps) => {
   if (!file) {
     return (
       <div className={cn(
-        "flex flex-col items-center justify-center h-full rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm",
+        "flex flex-col items-center justify-center h-full bg-muted/30",
         className
       )}>
         <div className="text-center p-8">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-            <FileText className="w-10 h-10 text-primary/50" />
-          </div>
-          <h3 className="text-lg font-medium text-foreground mb-2">PDF Preview</h3>
-          <p className="text-sm text-muted-foreground max-w-[200px]">
-            Upload a PDF file to see the preview here
+          <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+          <p className="text-sm text-muted-foreground">
+            Upload a PDF to preview
           </p>
         </div>
       </div>
@@ -107,15 +101,15 @@ const ToolPreviewPanel = ({ file, className }: ToolPreviewPanelProps) => {
   if (isLoading) {
     return (
       <div className={cn(
-        "flex flex-col items-center justify-center h-full rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm",
+        "flex flex-col items-center justify-center h-full bg-muted/30",
         className
       )}>
         <div className="text-center">
-          <div className="relative w-16 h-16 mx-auto mb-4">
-            <div className="absolute inset-0 rounded-full border-4 border-primary/20"></div>
-            <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+          <div className="relative w-10 h-10 mx-auto mb-3">
+            <div className="absolute inset-0 rounded-full border-2 border-muted-foreground/20"></div>
+            <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
           </div>
-          <p className="text-sm text-muted-foreground">Loading preview...</p>
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -125,48 +119,38 @@ const ToolPreviewPanel = ({ file, className }: ToolPreviewPanelProps) => {
   if (pageImages.length === 0) {
     return (
       <div className={cn(
-        "flex flex-col items-center justify-center h-full rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm",
+        "flex flex-col items-center justify-center h-full bg-muted/30",
         className
       )}>
         <div className="text-center p-8">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/10 flex items-center justify-center">
-            <FileText className="w-8 h-8 text-destructive/50" />
-          </div>
-          <p className="text-sm text-muted-foreground">Unable to preview PDF</p>
+          <FileText className="w-12 h-12 mx-auto mb-3 text-destructive/50" />
+          <p className="text-sm text-muted-foreground">Unable to preview</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div 
-      ref={containerRef}
-      className={cn(
-        "flex flex-col h-full rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden transition-all duration-300",
-        isExpanded && "fixed inset-4 z-50 bg-card",
-        className
-      )}
-    >
+    <div className={cn("flex flex-col h-full", className)}>
       {/* Header Controls */}
-      <div className="flex items-center justify-between border-b border-border/50 bg-muted/30 px-3 py-2 shrink-0">
+      <div className="flex items-center justify-between border-b bg-muted/50 px-3 py-2 shrink-0">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-7 w-7"
             onClick={handlePrevPage}
             disabled={currentPage === 0}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-xs text-muted-foreground min-w-[80px] text-center">
+          <span className="text-xs text-muted-foreground min-w-[60px] text-center">
             {currentPage + 1} / {totalPages}
-            {totalPages > 20 && <span className="text-[10px]"> (max 20)</span>}
           </span>
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-7 w-7"
             onClick={handleNextPage}
             disabled={currentPage >= pageImages.length - 1}
           >
@@ -178,7 +162,7 @@ const ToolPreviewPanel = ({ file, className }: ToolPreviewPanelProps) => {
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-7 w-7"
             onClick={handleZoomOut}
             disabled={zoom <= 0.25}
           >
@@ -190,31 +174,19 @@ const ToolPreviewPanel = ({ file, className }: ToolPreviewPanelProps) => {
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-7 w-7"
             onClick={handleZoomIn}
             disabled={zoom >= 3}
           >
             <ZoomIn className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 ml-1"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            {isExpanded ? (
-              <Minimize2 className="h-4 w-4" />
-            ) : (
-              <Maximize2 className="h-4 w-4" />
-            )}
-          </Button>
         </div>
       </div>
 
       {/* Preview Content */}
-      <div className="flex-1 overflow-auto bg-gradient-to-b from-muted/5 to-muted/20 p-4">
+      <div className="flex-1 overflow-auto bg-muted/30 p-4">
         <div 
-          className="flex justify-center transition-transform duration-200"
+          className="flex justify-center"
           style={{ 
             transform: `scale(${zoom})`,
             transformOrigin: "top center",
@@ -223,33 +195,30 @@ const ToolPreviewPanel = ({ file, className }: ToolPreviewPanelProps) => {
           <img
             src={pageImages[currentPage]}
             alt={`Page ${currentPage + 1}`}
-            className="shadow-xl rounded-lg border border-border/30 max-w-full"
-            style={{ 
-              maxHeight: isExpanded ? "calc(100vh - 120px)" : "auto",
-            }}
+            className="shadow-lg rounded border max-w-full"
           />
         </div>
       </div>
 
       {/* Page Thumbnails */}
       {pageImages.length > 1 && (
-        <div className="border-t border-border/50 bg-muted/30 p-2 shrink-0">
+        <div className="border-t bg-muted/50 p-2 shrink-0">
           <div className="flex gap-2 overflow-x-auto pb-1">
             {pageImages.map((img, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentPage(index)}
                 className={cn(
-                  "shrink-0 rounded-md overflow-hidden border-2 transition-all duration-200 hover:scale-105",
+                  "shrink-0 rounded overflow-hidden border-2 transition-all hover:scale-105",
                   currentPage === index 
-                    ? "border-primary ring-2 ring-primary/30" 
-                    : "border-border/50 hover:border-primary/50"
+                    ? "border-primary" 
+                    : "border-transparent hover:border-muted-foreground/30"
                 )}
               >
                 <img
                   src={img}
-                  alt={`Thumbnail ${index + 1}`}
-                  className="h-12 w-auto object-contain"
+                  alt={`Page ${index + 1}`}
+                  className="h-10 w-auto object-contain"
                 />
               </button>
             ))}
