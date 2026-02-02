@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useRef, useState } from "react";
-import { Upload, X, FileText, Plus, GripVertical } from "lucide-react";
+import { X, Plus, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import PDFThumbnail from "@/components/PDFThumbnail";
@@ -133,8 +133,8 @@ const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
                         ref={provided.innerRef}
                         {...provided.draggableProps}
                         className={cn(
-                          "flex items-center gap-3 p-3 rounded-xl border bg-white transition-all",
-                          snapshot.isDragging && "shadow-lg ring-2 ring-primary/20"
+                          "flex items-center gap-3 p-3 rounded-lg border bg-white transition-all",
+                          snapshot.isDragging && "shadow-lg ring-2 ring-[hsl(0,84%,60%)]/20"
                         )}
                       >
                         {multiple && (
@@ -146,7 +146,7 @@ const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
                           </div>
                         )}
                         
-                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                        <div className="w-12 h-12 rounded overflow-hidden bg-muted flex-shrink-0">
                           <PDFThumbnail file={file} width={48} />
                         </div>
                         
@@ -185,7 +185,7 @@ const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
           <Button
             variant="outline"
             onClick={openFileDialog}
-            className="w-full border-dashed h-12"
+            className="w-full border-dashed h-12 text-[hsl(0,84%,60%)] border-[hsl(0,84%,60%)]/30 hover:bg-[hsl(0,84%,60%)]/5"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add more files ({files.length}/{maxFiles})
@@ -204,59 +204,61 @@ const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
     );
   }
 
-  // Empty state - Clean centered upload like iLovePDF
+  // Empty state - Exactly like iLovePDF
   return (
-    <div className="w-full flex flex-col items-center" ref={ref}>
-      <div
-        className={cn(
-          "relative cursor-pointer transition-all duration-200",
-          isDragging && "scale-105"
-        )}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onClick={openFileDialog}
-      >
-        {/* Main upload button - iLovePDF style */}
+    <div 
+      className="w-full flex flex-col items-center" 
+      ref={ref}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <div className={cn(
+        "relative transition-transform duration-200",
+        isDragging && "scale-105"
+      )}>
+        {/* Main upload button - exactly like iLovePDF */}
         <button
           type="button"
+          onClick={openFileDialog}
           className={cn(
-            "flex items-center gap-3 h-14 px-10 text-lg font-semibold rounded-lg shadow-lg transition-all",
+            "flex items-center justify-center h-14 px-16 text-lg font-medium rounded-lg shadow-md transition-all",
             "bg-[hsl(0,84%,60%)] hover:bg-[hsl(0,84%,55%)] text-white",
-            isDragging && "ring-4 ring-[hsl(0,84%,60%)]/30 scale-105"
+            isDragging && "ring-4 ring-[hsl(0,84%,60%)]/30"
           )}
         >
-          <Upload className="h-5 w-5" />
           {title}
         </button>
         
-        {/* Cloud storage buttons (decorative) */}
-        <div className="absolute -right-2 top-1/2 -translate-y-1/2 flex flex-col gap-1.5">
+        {/* Cloud storage buttons - exactly like iLovePDF */}
+        <div className="absolute -right-3 top-0 bottom-0 flex flex-col justify-center gap-1">
+          {/* Google Drive */}
           <button
             type="button"
             onClick={(e) => e.stopPropagation()}
-            className="w-7 h-7 rounded-full bg-[hsl(0,84%,60%)] hover:bg-[hsl(0,84%,55%)] text-white flex items-center justify-center shadow-md transition-colors"
+            className="w-8 h-8 rounded-full bg-[hsl(0,84%,60%)] hover:bg-[hsl(0,84%,55%)] text-white flex items-center justify-center shadow transition-colors"
             title="Google Drive"
           >
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M4.433 22l-1.6-2.8 6.533-11.333h3.2L6.033 22h-1.6zm7.467-13.6L5.367 2h3.2l6.533 6.4-3.2 0zm7.467 13.6h-1.6l-6.533-11.333L14.433 5l6.534 11.4-1.6 2.6z"/>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4.433 22l-1.6-2.8 6.533-11.333h3.2L6.033 22h-1.6zm7.467-13.6L5.367 2h3.2l6.533 6.4h-3.2zm7.467 13.6h-1.6l-6.533-11.333L14.433 5l6.534 11.4-1.6 2.6z"/>
             </svg>
           </button>
+          {/* Dropbox */}
           <button
             type="button"
             onClick={(e) => e.stopPropagation()}
-            className="w-7 h-7 rounded-full bg-[hsl(0,84%,60%)] hover:bg-[hsl(0,84%,55%)] text-white flex items-center justify-center shadow-md transition-colors"
+            className="w-8 h-8 rounded-full bg-[hsl(0,84%,60%)] hover:bg-[hsl(0,84%,55%)] text-white flex items-center justify-center shadow transition-colors"
             title="Dropbox"
           >
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 2l6 3.75L6 9.5 0 5.75 6 2zm12 0l6 3.75-6 3.75-6-3.75L18 2zM0 13.25L6 9.5l6 3.75L6 17 0 13.25zm18-3.75l6 3.75L18 17l-6-3.75 6-3.75zM6 18.25l6-3.75 6 3.75L12 22l-6-3.75z"/>
             </svg>
           </button>
         </div>
       </div>
 
-      {/* Drop hint */}
-      <p className="mt-4 text-sm text-muted-foreground">
+      {/* Drop hint - exactly like iLovePDF */}
+      <p className="mt-5 text-sm text-muted-foreground">
         {description}
       </p>
 
