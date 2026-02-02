@@ -110,6 +110,7 @@ const ExtractPages = () => {
       description="Extract specific pages from your PDF document"
       icon={FileOutput}
       color="split"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

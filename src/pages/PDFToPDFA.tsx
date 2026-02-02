@@ -27,6 +27,7 @@ const PDFToPDFA = () => {
       description="Convert PDF to archival format (PDF/A) for long-term preservation"
       icon={FileCheck}
       color="protect"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       <div className="mb-4 rounded-lg border bg-muted/30 p-4">
         <h3 className="font-medium">What is PDF/A?</h3>

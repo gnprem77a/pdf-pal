@@ -27,6 +27,7 @@ const PDFToWord = () => {
       description="Convert PDF files to editable Word documents"
       icon={FileType}
       color="word"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

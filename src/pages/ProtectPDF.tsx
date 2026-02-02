@@ -36,6 +36,7 @@ const ProtectPDF = () => {
       description="Add password protection to your PDF files"
       icon={Lock}
       color="protect"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

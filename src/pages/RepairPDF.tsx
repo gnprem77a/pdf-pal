@@ -19,7 +19,7 @@ const RepairPDF = () => {
   const handleReset = () => { setFiles([]); reset(); };
 
   return (
-    <ToolLayout title="Repair PDF" description="Fix corrupted or damaged PDF files" icon={Wrench} color="compress">
+    <ToolLayout title="Repair PDF" description="Fix corrupted or damaged PDF files" icon={Wrench} color="compress" previewFile={files.length > 0 ? files[0] : null}>
       {status === "idle" || status === "error" ? (
         <>
           <FileUpload files={files} onFilesChange={setFiles} title="Drop your corrupted PDF here" description="Select a PDF file that needs repair" />

@@ -3,6 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, LucideIcon, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import ToolPreviewPanel from "./ToolPreviewPanel";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 
 interface ToolLayoutProps {
   title: string;
@@ -10,6 +17,7 @@ interface ToolLayoutProps {
   icon: LucideIcon;
   color: "merge" | "split" | "compress" | "word" | "image" | "protect";
   children: ReactNode;
+  previewFile?: File | null;
 }
 
 const colorClasses = {
@@ -57,9 +65,11 @@ const ToolLayout = ({
   icon: Icon,
   color,
   children,
+  previewFile,
 }: ToolLayoutProps) => {
   const navigate = useNavigate();
   const colors = colorClasses[color];
+  const isMobile = useIsMobile();
 
   const handleBack = () => {
     const state = window.history.state as { idx?: number } | null;
@@ -72,6 +82,8 @@ const ToolLayout = ({
 
     navigate("/", { replace: true });
   };
+
+  const showPreview = previewFile !== undefined;
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -126,16 +138,52 @@ const ToolLayout = ({
 
       {/* Main content */}
       <main className="container relative z-10 py-8 md:py-12">
-        <div className="mx-auto max-w-3xl animate-fade-in">
-          {/* Glass card container */}
-          <div className={cn(
-            "rounded-3xl border border-border/50 bg-card/70 backdrop-blur-xl p-6 md:p-8",
-            "shadow-xl ring-1",
-            colors.ring
-          )}>
-            {children}
+        {showPreview && !isMobile ? (
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="min-h-[600px] rounded-3xl border border-border/50 bg-card/30 backdrop-blur-sm"
+          >
+            {/* Left Panel - Tools */}
+            <ResizablePanel defaultSize={55} minSize={35} maxSize={70}>
+              <div className="h-full p-6 md:p-8 overflow-auto">
+                <div className={cn(
+                  "rounded-2xl border border-border/50 bg-card/70 backdrop-blur-xl p-6",
+                  "shadow-xl ring-1",
+                  colors.ring
+                )}>
+                  {children}
+                </div>
+              </div>
+            </ResizablePanel>
+
+            <ResizableHandle withHandle className="bg-border/50 hover:bg-primary/30 transition-colors" />
+
+            {/* Right Panel - Preview */}
+            <ResizablePanel defaultSize={45} minSize={30} maxSize={65}>
+              <div className="h-full p-6 md:p-8">
+                <ToolPreviewPanel file={previewFile} className="h-full" />
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : (
+          <div className="mx-auto max-w-3xl animate-fade-in">
+            {/* Glass card container */}
+            <div className={cn(
+              "rounded-3xl border border-border/50 bg-card/70 backdrop-blur-xl p-6 md:p-8",
+              "shadow-xl ring-1",
+              colors.ring
+            )}>
+              {children}
+            </div>
+            
+            {/* Mobile Preview - Below content */}
+            {showPreview && isMobile && previewFile && (
+              <div className="mt-6 h-[400px]">
+                <ToolPreviewPanel file={previewFile} className="h-full" />
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </main>
     </div>
   );

@@ -38,6 +38,7 @@ const AddPageNumbers = () => {
       description="Insert page numbers to your PDF"
       icon={Hash}
       color="merge"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

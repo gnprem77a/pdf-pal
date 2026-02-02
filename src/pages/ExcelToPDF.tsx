@@ -27,6 +27,7 @@ const ExcelToPDF = () => {
       description="Convert Excel spreadsheets to PDF format"
       icon={Sheet}
       color="compress"
+      previewFile={null}
     >
       {status === "idle" || status === "error" ? (
         <>

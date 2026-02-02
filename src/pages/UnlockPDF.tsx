@@ -22,7 +22,7 @@ const UnlockPDF = () => {
   const handleReset = () => { setFiles([]); setPassword(""); reset(); };
 
   return (
-    <ToolLayout title="Unlock PDF" description="Remove restrictions from PDF files" icon={Unlock} color="protect">
+    <ToolLayout title="Unlock PDF" description="Remove restrictions from PDF files" icon={Unlock} color="protect" previewFile={files.length > 0 ? files[0] : null}>
       {status === "idle" || status === "error" ? (
         <>
           <FileUpload files={files} onFilesChange={setFiles} title="Drop your PDF file here" description="Select a PDF to unlock" />

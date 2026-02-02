@@ -134,6 +134,7 @@ const BatchProcess = () => {
       description="Process multiple PDF files at once"
       icon={Layers}
       color="merge"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {queue.length === 0 ? (
         <FileUpload

@@ -110,6 +110,7 @@ const ReorderPages = () => {
       description="Drag and drop to rearrange PDF pages"
       icon={ArrowUpDown}
       color="merge"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

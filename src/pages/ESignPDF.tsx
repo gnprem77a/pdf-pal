@@ -126,6 +126,7 @@ const ESignPDF = () => {
       description="Add your signature to PDF documents"
       icon={PenTool}
       color="protect"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

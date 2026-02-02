@@ -117,6 +117,7 @@ const SplitPDF = () => {
       description="Separate PDF pages into individual files"
       icon={Scissors}
       color="split"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

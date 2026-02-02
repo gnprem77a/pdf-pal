@@ -26,6 +26,7 @@ const ComparePDF = () => {
       description="Compare two PDF documents and highlight differences"
       icon={GitCompare}
       color="word"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>
