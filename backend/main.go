@@ -1324,7 +1324,10 @@ func handleLibreOfficeConvert(w http.ResponseWriter, r *http.Request, convType, 
 		return
 	}
 
-	outputDir := filepath.Join(TempDir, "output")
+	// Create a unique output directory to avoid conflicts
+	uniqueID := uuid.New().String()[:8]
+	outputDir := filepath.Join(TempDir, "output", "libreoffice-"+uniqueID)
+	os.MkdirAll(outputDir, 0755)
 
 	// Determine output format for LibreOffice
 	var convertFormat string
@@ -1353,22 +1356,46 @@ func handleLibreOfficeConvert(w http.ResponseWriter, r *http.Request, convType, 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("LibreOffice output: %s", string(output))
+		os.RemoveAll(outputDir)
 		sendError(w, fmt.Sprintf("Conversion failed: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Find the converted file
-	baseName := strings.TrimSuffix(filepath.Base(inputPath), filepath.Ext(inputPath))
-	convertedFile := filepath.Join(outputDir, baseName+"."+convertFormat)
+	// Find the converted file in the output directory
+	var convertedFile string
+	entries, err := os.ReadDir(outputDir)
+	if err != nil || len(entries) == 0 {
+		log.Printf("LibreOffice output dir empty or error: %v", err)
+		os.RemoveAll(outputDir)
+		sendError(w, "Conversion produced no output file", http.StatusInternalServerError)
+		return
+	}
 
-	// Rename to our standard naming convention
+	// Find the file with the expected extension
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), "."+convertFormat) {
+			convertedFile = filepath.Join(outputDir, entry.Name())
+			break
+		}
+	}
+
+	if convertedFile == "" {
+		log.Printf("LibreOffice: No %s file found in output. Files: %v", convertFormat, entries)
+		os.RemoveAll(outputDir)
+		sendError(w, fmt.Sprintf("Conversion produced no .%s file", convertFormat), http.StatusInternalServerError)
+		return
+	}
+
+	// Move to final location with our standard naming
 	finalPath := generateOutputPath("converted", outputExt)
 	err = os.Rename(convertedFile, finalPath)
 	if err != nil {
 		// Try copy if rename fails (cross-device)
 		copyFile(convertedFile, finalPath)
-		os.Remove(convertedFile)
 	}
+
+	// Cleanup the temp output directory
+	os.RemoveAll(outputDir)
 
 	sendDownloadResponse(w, filepath.Base(finalPath))
 }
