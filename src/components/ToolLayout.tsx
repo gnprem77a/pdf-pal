@@ -1,15 +1,10 @@
 import { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, LucideIcon, Sparkles } from "lucide-react";
+import { ArrowLeft, LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import ToolPreviewPanel from "./ToolPreviewPanel";
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from "@/components/ui/resizable";
 
 interface ToolLayoutProps {
   title: string;
@@ -22,40 +17,46 @@ interface ToolLayoutProps {
 
 const colorClasses = {
   merge: {
-    bg: "bg-tool-merge",
-    gradient: "from-[hsl(243,75%,59%)] to-[hsl(262,83%,58%)]",
-    glow: "shadow-[0_0_60px_-10px_hsl(243,75%,59%/0.5)]",
-    ring: "ring-[hsl(243,75%,59%/0.3)]",
+    bg: "bg-[hsl(243,75%,59%)]",
+    bgLight: "bg-[hsl(243,75%,97%)]",
+    text: "text-[hsl(243,75%,59%)]",
+    border: "border-[hsl(243,75%,90%)]",
+    hover: "hover:bg-[hsl(243,75%,55%)]",
   },
   split: {
-    bg: "bg-tool-split",
-    gradient: "from-[hsl(262,83%,58%)] to-[hsl(280,80%,55%)]",
-    glow: "shadow-[0_0_60px_-10px_hsl(262,83%,58%/0.5)]",
-    ring: "ring-[hsl(262,83%,58%/0.3)]",
+    bg: "bg-[hsl(262,83%,58%)]",
+    bgLight: "bg-[hsl(262,83%,97%)]",
+    text: "text-[hsl(262,83%,58%)]",
+    border: "border-[hsl(262,83%,90%)]",
+    hover: "hover:bg-[hsl(262,83%,54%)]",
   },
   compress: {
-    bg: "bg-tool-compress",
-    gradient: "from-[hsl(142,71%,45%)] to-[hsl(160,70%,40%)]",
-    glow: "shadow-[0_0_60px_-10px_hsl(142,71%,45%/0.5)]",
-    ring: "ring-[hsl(142,71%,45%/0.3)]",
+    bg: "bg-[hsl(142,71%,45%)]",
+    bgLight: "bg-[hsl(142,71%,97%)]",
+    text: "text-[hsl(142,71%,45%)]",
+    border: "border-[hsl(142,71%,90%)]",
+    hover: "hover:bg-[hsl(142,71%,40%)]",
   },
   word: {
-    bg: "bg-tool-word",
-    gradient: "from-[hsl(217,91%,60%)] to-[hsl(230,85%,55%)]",
-    glow: "shadow-[0_0_60px_-10px_hsl(217,91%,60%/0.5)]",
-    ring: "ring-[hsl(217,91%,60%/0.3)]",
+    bg: "bg-[hsl(217,91%,60%)]",
+    bgLight: "bg-[hsl(217,91%,97%)]",
+    text: "text-[hsl(217,91%,60%)]",
+    border: "border-[hsl(217,91%,90%)]",
+    hover: "hover:bg-[hsl(217,91%,55%)]",
   },
   image: {
-    bg: "bg-tool-image",
-    gradient: "from-[hsl(15,90%,60%)] to-[hsl(30,85%,55%)]",
-    glow: "shadow-[0_0_60px_-10px_hsl(15,90%,60%/0.5)]",
-    ring: "ring-[hsl(15,90%,60%/0.3)]",
+    bg: "bg-[hsl(15,90%,60%)]",
+    bgLight: "bg-[hsl(15,90%,97%)]",
+    text: "text-[hsl(15,90%,60%)]",
+    border: "border-[hsl(15,90%,90%)]",
+    hover: "hover:bg-[hsl(15,90%,55%)]",
   },
   protect: {
-    bg: "bg-tool-protect",
-    gradient: "from-[hsl(340,82%,52%)] to-[hsl(355,80%,50%)]",
-    glow: "shadow-[0_0_60px_-10px_hsl(340,82%,52%/0.5)]",
-    ring: "ring-[hsl(340,82%,52%/0.3)]",
+    bg: "bg-[hsl(340,82%,52%)]",
+    bgLight: "bg-[hsl(340,82%,97%)]",
+    text: "text-[hsl(340,82%,52%)]",
+    border: "border-[hsl(340,82%,90%)]",
+    hover: "hover:bg-[hsl(340,82%,48%)]",
   },
 };
 
@@ -83,103 +84,88 @@ const ToolLayout = ({
     navigate("/", { replace: true });
   };
 
-  const showPreview = previewFile !== undefined;
+  const hasFile = previewFile !== null && previewFile !== undefined;
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className={cn(
-          "absolute -top-40 -right-40 w-96 h-96 rounded-full blur-3xl opacity-20 animate-pulse-soft",
-          `bg-gradient-to-br ${colors.gradient}`
-        )} />
-        <div className={cn(
-          "absolute -bottom-40 -left-40 w-80 h-80 rounded-full blur-3xl opacity-15 animate-float",
-          `bg-gradient-to-tr ${colors.gradient}`
-        )} />
-        <div className={cn(
-          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-3xl opacity-5",
-          `bg-gradient-to-r ${colors.gradient}`
-        )} />
-      </div>
-
+    <div className={cn("min-h-screen", colors.bgLight)}>
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border/50 bg-card/80 backdrop-blur-xl">
-        <div className="container flex items-center gap-4 py-4">
+      <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur-sm">
+        <div className="container flex items-center justify-between py-3">
           <Button
             type="button"
             variant="ghost"
             size="icon"
             onClick={handleBack}
             aria-label="Back"
-            className="rounded-xl hover:bg-secondary/80 transition-all duration-300 hover:scale-105"
+            className="rounded-lg"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="flex items-center gap-4">
-            <div className={cn(
-              "relative rounded-2xl p-3 text-white transition-all duration-500",
-              `bg-gradient-to-br ${colors.gradient}`,
-              colors.glow
-            )}>
-              <Icon className="h-7 w-7 relative z-10" />
-              <div className="absolute inset-0 rounded-2xl bg-white/20 opacity-0 hover:opacity-100 transition-opacity" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-foreground tracking-tight">{title}</h1>
-                <Sparkles className="h-4 w-4 text-primary animate-pulse-soft" />
-              </div>
-              <p className="text-sm text-muted-foreground">{description}</p>
-            </div>
-          </div>
+          
+          <nav className="hidden md:flex items-center gap-6">
+            <span className={cn("font-medium", colors.text)}>{title.toUpperCase()}</span>
+          </nav>
+          
+          <div className="w-10" /> {/* Spacer for centering */}
         </div>
       </header>
 
       {/* Main content */}
-      <main className="container relative z-10 py-8 md:py-12">
-        {showPreview && !isMobile ? (
-          <ResizablePanelGroup
-            direction="horizontal"
-            className="min-h-[600px] rounded-3xl border border-border/50 bg-card/30 backdrop-blur-sm"
-          >
-            {/* Left Panel - Tools */}
-            <ResizablePanel defaultSize={55} minSize={35} maxSize={70}>
-              <div className="h-full p-6 md:p-8 overflow-auto">
-                <div className={cn(
-                  "rounded-2xl border border-border/50 bg-card/70 backdrop-blur-xl p-6",
-                  "shadow-xl ring-1",
-                  colors.ring
-                )}>
-                  {children}
-                </div>
-              </div>
-            </ResizablePanel>
+      <main className="container relative z-10">
+        {!hasFile ? (
+          /* Initial state - Centered upload */
+          <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] py-12">
+            {/* Title and description */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
+                {title}
+              </h1>
+              <p className="text-lg text-muted-foreground max-w-md mx-auto">
+                {description}
+              </p>
+            </div>
 
-            <ResizableHandle withHandle className="bg-border/50 hover:bg-primary/30 transition-colors" />
-
-            {/* Right Panel - Preview */}
-            <ResizablePanel defaultSize={45} minSize={30} maxSize={65}>
-              <div className="h-full p-6 md:p-8">
-                <ToolPreviewPanel file={previewFile} className="h-full" />
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        ) : (
-          <div className="mx-auto max-w-3xl animate-fade-in">
-            {/* Glass card container */}
-            <div className={cn(
-              "rounded-3xl border border-border/50 bg-card/70 backdrop-blur-xl p-6 md:p-8",
-              "shadow-xl ring-1",
-              colors.ring
-            )}>
+            {/* Upload area with tool icon */}
+            <div className="w-full max-w-xl">
               {children}
             </div>
-            
-            {/* Mobile Preview - Below content */}
-            {showPreview && isMobile && previewFile && (
-              <div className="mt-6 h-[400px]">
-                <ToolPreviewPanel file={previewFile} className="h-full" />
+          </div>
+        ) : (
+          /* File uploaded - Split view */
+          <div className="py-8">
+            {/* Title bar */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className={cn("rounded-xl p-2.5 text-white", colors.bg)}>
+                <Icon className="h-6 w-6" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">{title}</h1>
+                <p className="text-sm text-muted-foreground">{description}</p>
+              </div>
+            </div>
+
+            {/* Split view layout */}
+            <div className={cn(
+              "grid gap-6",
+              isMobile ? "grid-cols-1" : "grid-cols-[1fr,400px]"
+            )}>
+              {/* Left - Tool controls */}
+              <div className="bg-white rounded-2xl border shadow-sm p-6">
+                {children}
+              </div>
+
+              {/* Right - Preview */}
+              {!isMobile && (
+                <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+                  <ToolPreviewPanel file={previewFile} className="h-[600px]" />
+                </div>
+              )}
+            </div>
+
+            {/* Mobile preview */}
+            {isMobile && (
+              <div className="mt-6 bg-white rounded-2xl border shadow-sm overflow-hidden">
+                <ToolPreviewPanel file={previewFile} className="h-[400px]" />
               </div>
             )}
           </div>
