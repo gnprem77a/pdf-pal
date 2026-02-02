@@ -62,17 +62,23 @@ RUN sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /e
 # Copy binary from builder
 COPY --from=builder /app/server .
 
-# Create temp directories
-RUN mkdir -p /app/temp/uploads /app/temp/output
+# Create all necessary directories under /app
+RUN mkdir -p /app/temp/uploads /app/temp/output /app/.config /app/.cache
 
-# Environment
+# Environment - ALL paths must stay under /app
 ENV PORT=8080
 ENV HOST=http://localhost:8080
 ENV TEMP_DIR=/app/temp
 ENV FILE_TTL_MINUTES=10
+# Prevent pdfcpu and other tools from writing to /home or /root
+ENV HOME=/app
+ENV XDG_CONFIG_HOME=/app/.config
+ENV XDG_CACHE_HOME=/app/.cache
+# LibreOffice user profile must stay under /app
+ENV FONTCONFIG_PATH=/etc/fonts
 
-# Non-root user for security
-RUN useradd -r -s /bin/false pdfuser && \
+# Non-root user for security - home directory set to /app
+RUN useradd -r -s /bin/false -d /app pdfuser && \
     chown -R pdfuser:pdfuser /app
 USER pdfuser
 
