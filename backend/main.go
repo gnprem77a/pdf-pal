@@ -359,14 +359,84 @@ func handleCompress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	targetSizeStr := r.FormValue("targetSize")
+	targetSize, _ := strconv.ParseInt(targetSizeStr, 10, 64)
+
 	outputPath := generateOutputPath("compressed", ".pdf")
 
-	// Use optimization for compression
-	conf := model.NewDefaultConfiguration()
-	err = api.OptimizeFile(inputPath, outputPath, conf)
-	if err != nil {
-		sendError(w, fmt.Sprintf("Compression failed: %v", err), http.StatusInternalServerError)
-		return
+	if targetSize > 0 {
+		// Use Ghostscript for aggressive compression with target size
+		// Start with quality and iteratively reduce until target is met
+		qualities := []int{150, 100, 72, 50, 30, 20}
+		var lastOutput string
+
+		for _, quality := range qualities {
+			tempOutput := generateOutputPath(fmt.Sprintf("compress-q%d", quality), ".pdf")
+
+			cmd := exec.Command("gs",
+				"-sDEVICE=pdfwrite",
+				"-dCompatibilityLevel=1.4",
+				"-dPDFSETTINGS=/ebook",
+				"-dNOPAUSE",
+				"-dBATCH",
+				fmt.Sprintf("-dColorImageResolution=%d", quality),
+				fmt.Sprintf("-dGrayImageResolution=%d", quality),
+				fmt.Sprintf("-dMonoImageResolution=%d", quality),
+				"-dDownsampleColorImages=true",
+				"-dDownsampleGrayImages=true",
+				"-dDownsampleMonoImages=true",
+				fmt.Sprintf("-sOutputFile=%s", tempOutput),
+				inputPath)
+
+			gsOutput, gsErr := cmd.CombinedOutput()
+			if gsErr != nil {
+				log.Printf("Ghostscript compress (q=%d) failed: %s", quality, string(gsOutput))
+				continue
+			}
+
+			// Check file size
+			info, err := os.Stat(tempOutput)
+			if err != nil {
+				continue
+			}
+
+			lastOutput = tempOutput
+
+			if info.Size() <= targetSize {
+				// Target achieved
+				os.Rename(tempOutput, outputPath)
+				sendDownloadResponse(w, filepath.Base(outputPath))
+				return
+			}
+
+			// Clean up intermediate file if not final
+			if quality != qualities[len(qualities)-1] {
+				os.Remove(tempOutput)
+			}
+		}
+
+		// If we couldn't reach target, use the smallest we got
+		if lastOutput != "" {
+			os.Rename(lastOutput, outputPath)
+			sendDownloadResponse(w, filepath.Base(outputPath))
+			return
+		}
+
+		// Fallback to pdfcpu if Ghostscript failed
+		conf := model.NewDefaultConfiguration()
+		err = api.OptimizeFile(inputPath, outputPath, conf)
+		if err != nil {
+			sendError(w, fmt.Sprintf("Compression failed: %v", err), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// Standard optimization without target
+		conf := model.NewDefaultConfiguration()
+		err = api.OptimizeFile(inputPath, outputPath, conf)
+		if err != nil {
+			sendError(w, fmt.Sprintf("Compression failed: %v", err), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	sendDownloadResponse(w, filepath.Base(outputPath))
@@ -650,24 +720,29 @@ func handleAddPageNumbers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	position := r.FormValue("position")
-	// Map frontend positions to pdfcpu anchor positions
-	posMap := map[string]string{
-		"bottom-center": "bc",
-		"bottom-left":   "bl",
-		"bottom-right":  "br",
-		"top-center":    "tc",
-		"top-left":      "tl",
-		"top-right":     "tr",
+	// Map frontend positions to pdfcpu anchor and offset
+	posConfig := map[string]struct {
+		anchor string
+		offset string
+	}{
+		"bottom-center": {"bc", "0 25"},
+		"bottom-left":   {"bl", "25 25"},
+		"bottom-right":  {"br", "-25 25"},
+		"top-center":    {"tc", "0 -25"},
+		"top-left":      {"tl", "25 -25"},
+		"top-right":     {"tr", "-25 -25"},
 	}
-	pos, ok := posMap[position]
+	cfg, ok := posConfig[position]
 	if !ok {
-		pos = "bc" // default to bottom center
+		cfg = posConfig["bottom-center"]
 	}
 
 	outputPath := generateOutputPath("numbered", ".pdf")
 
-	// Add page numbers using absolute font size (no scale)
-	err = api.AddTextWatermarksFile(inputPath, outputPath, nil, true, "%p", fmt.Sprintf("font:Helvetica, points:10, pos:%s", pos), nil)
+	// Use pdfcpu stamp with explicit small scale (0.02 = 2% of page width)
+	// scale:0.02 gives approximately 10-12pt text on A4
+	stampDesc := fmt.Sprintf("font:Helvetica, scale:0.02 abs, pos:%s, offset:%s, color:0 0 0", cfg.anchor, cfg.offset)
+	err = api.AddTextWatermarksFile(inputPath, outputPath, nil, true, "%p", stampDesc, nil)
 	if err != nil {
 		sendError(w, fmt.Sprintf("Add page numbers failed: %v", err), http.StatusInternalServerError)
 		return
@@ -697,9 +772,13 @@ func handleAddHeaderFooter(w http.ResponseWriter, r *http.Request) {
 	outputPath := generateOutputPath("header-footer", ".pdf")
 	currentInput := inputPath
 
-	// Add header if provided (using absolute font size)
+	// Use small scale (0.02 = ~10pt on A4) with proper margins
+	headerDesc := "font:Helvetica, scale:0.02 abs, pos:tc, offset:0 -25, color:0 0 0"
+	footerDesc := "font:Helvetica, scale:0.02 abs, pos:bc, offset:0 25, color:0 0 0"
+
+	// Add header if provided
 	if header != "" {
-		err = api.AddTextWatermarksFile(currentInput, outputPath, nil, true, header, "font:Helvetica, points:10, pos:tc, offset:0 20", nil)
+		err = api.AddTextWatermarksFile(currentInput, outputPath, nil, true, header, headerDesc, nil)
 		if err != nil {
 			log.Printf("Header addition warning: %v", err)
 			copyFile(inputPath, outputPath)
@@ -707,11 +786,11 @@ func handleAddHeaderFooter(w http.ResponseWriter, r *http.Request) {
 		currentInput = outputPath
 	}
 
-	// Add footer if provided (using absolute font size)
+	// Add footer if provided
 	if footer != "" {
 		if header != "" {
 			tempOutput := generateOutputPath("header-footer-temp", ".pdf")
-			err = api.AddTextWatermarksFile(currentInput, tempOutput, nil, true, footer, "font:Helvetica, points:10, pos:bc, offset:0 -20", nil)
+			err = api.AddTextWatermarksFile(currentInput, tempOutput, nil, true, footer, footerDesc, nil)
 			if err != nil {
 				log.Printf("Footer addition warning: %v", err)
 			} else {
@@ -719,7 +798,7 @@ func handleAddHeaderFooter(w http.ResponseWriter, r *http.Request) {
 			}
 			os.Remove(tempOutput)
 		} else {
-			err = api.AddTextWatermarksFile(currentInput, outputPath, nil, true, footer, "font:Helvetica, points:10, pos:bc, offset:0 -20", nil)
+			err = api.AddTextWatermarksFile(currentInput, outputPath, nil, true, footer, footerDesc, nil)
 			if err != nil {
 				log.Printf("Footer addition warning: %v", err)
 				copyFile(inputPath, outputPath)
@@ -1265,17 +1344,239 @@ func handleScanToPDF(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/convert/pdf-to-word
 func handlePDFToWord(w http.ResponseWriter, r *http.Request) {
-	handleLibreOfficeConvert(w, r, "pdf-to-word", ".docx")
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(50 << 20)
+
+	inputPath, err := saveUploadedFile(r, "file0")
+	if err != nil {
+		sendError(w, "Failed to read file", http.StatusBadRequest)
+		return
+	}
+
+	// PDF to Word: Use LibreOffice Draw to open PDF, then save as docx
+	// LibreOffice can import PDFs via Draw and export to Writer format
+	uniqueID := uuid.New().String()[:8]
+	outputDir := filepath.Join(TempDir, "output", "pdf-to-word-"+uniqueID)
+	os.MkdirAll(outputDir, 0755)
+
+	// First convert PDF to ODT (LibreOffice's native format) - this works better
+	cmd := exec.Command("libreoffice",
+		"--headless",
+		"--infilter=writer_pdf_import",
+		"-env:UserInstallation=file:///app/.config/libreoffice",
+		"--convert-to", "docx:Office Open XML Text",
+		"--outdir", outputDir,
+		inputPath)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("LibreOffice PDF to Word output: %s", string(output))
+		os.RemoveAll(outputDir)
+		sendError(w, fmt.Sprintf("Conversion failed: %v - %s", err, string(output)), http.StatusInternalServerError)
+		return
+	}
+
+	// Find the converted file
+	var convertedFile string
+	entries, err := os.ReadDir(outputDir)
+	if err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".docx") {
+				convertedFile = filepath.Join(outputDir, entry.Name())
+				break
+			}
+		}
+	}
+
+	if convertedFile == "" {
+		log.Printf("PDF to Word: No docx file found. Dir contents: %v", entries)
+		os.RemoveAll(outputDir)
+		sendError(w, "Conversion produced no output file", http.StatusInternalServerError)
+		return
+	}
+
+	finalPath := generateOutputPath("converted", ".docx")
+	err = os.Rename(convertedFile, finalPath)
+	if err != nil {
+		copyFile(convertedFile, finalPath)
+	}
+	os.RemoveAll(outputDir)
+
+	sendDownloadResponse(w, filepath.Base(finalPath))
 }
 
 // POST /api/convert/pdf-to-excel
 func handlePDFToExcel(w http.ResponseWriter, r *http.Request) {
-	handleLibreOfficeConvert(w, r, "pdf-to-excel", ".xlsx")
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(50 << 20)
+
+	inputPath, err := saveUploadedFile(r, "file0")
+	if err != nil {
+		sendError(w, "Failed to read file", http.StatusBadRequest)
+		return
+	}
+
+	uniqueID := uuid.New().String()[:8]
+	outputDir := filepath.Join(TempDir, "output", "pdf-to-excel-"+uniqueID)
+	os.MkdirAll(outputDir, 0755)
+
+	// For PDF to Excel, we first extract text with tabular structure, then convert
+	// Use pdftotext with -layout to preserve table structure
+	textPath := filepath.Join(outputDir, "extracted.txt")
+	cmd := exec.Command("pdftotext", "-layout", inputPath, textPath)
+	cmd.Run()
+
+	// Convert to xlsx using LibreOffice - import the text file as CSV-like
+	cmd = exec.Command("libreoffice",
+		"--headless",
+		"-env:UserInstallation=file:///app/.config/libreoffice",
+		"--convert-to", "xlsx:Calc MS Excel 2007 XML",
+		"--outdir", outputDir,
+		textPath)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("LibreOffice PDF to Excel output: %s", string(output))
+		os.RemoveAll(outputDir)
+		sendError(w, fmt.Sprintf("Conversion failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Find the converted file
+	var convertedFile string
+	entries, err := os.ReadDir(outputDir)
+	if err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".xlsx") {
+				convertedFile = filepath.Join(outputDir, entry.Name())
+				break
+			}
+		}
+	}
+
+	if convertedFile == "" {
+		log.Printf("PDF to Excel: No xlsx file found. Dir contents: %v", entries)
+		os.RemoveAll(outputDir)
+		sendError(w, "Conversion produced no output file", http.StatusInternalServerError)
+		return
+	}
+
+	finalPath := generateOutputPath("converted", ".xlsx")
+	err = os.Rename(convertedFile, finalPath)
+	if err != nil {
+		copyFile(convertedFile, finalPath)
+	}
+	os.RemoveAll(outputDir)
+
+	sendDownloadResponse(w, filepath.Base(finalPath))
 }
 
 // POST /api/convert/pdf-to-ppt
 func handlePDFToPPT(w http.ResponseWriter, r *http.Request) {
-	handleLibreOfficeConvert(w, r, "pdf-to-ppt", ".pptx")
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(50 << 20)
+
+	inputPath, err := saveUploadedFile(r, "file0")
+	if err != nil {
+		sendError(w, "Failed to read file", http.StatusBadRequest)
+		return
+	}
+
+	uniqueID := uuid.New().String()[:8]
+	outputDir := filepath.Join(TempDir, "output", "pdf-to-ppt-"+uniqueID)
+	imgDir := filepath.Join(outputDir, "images")
+	os.MkdirAll(imgDir, 0755)
+
+	// Convert PDF pages to images first using Ghostscript
+	cmd := exec.Command("gs",
+		"-dNOPAUSE", "-dBATCH",
+		"-sDEVICE=png16m",
+		"-r150",
+		fmt.Sprintf("-sOutputFile=%s/page-%%d.png", imgDir),
+		inputPath)
+	cmd.Run()
+
+	// Now convert images to PPTX using LibreOffice Impress
+	// First, create an ODP (Open Document Presentation) with the images
+	// We'll use ImageMagick to make a PDF of images, then convert to pptx
+	
+	// Get all image files
+	imgEntries, _ := os.ReadDir(imgDir)
+	if len(imgEntries) == 0 {
+		os.RemoveAll(outputDir)
+		sendError(w, "Failed to extract PDF pages", http.StatusInternalServerError)
+		return
+	}
+
+	var imgPaths []string
+	for _, entry := range imgEntries {
+		if strings.HasSuffix(entry.Name(), ".png") {
+			imgPaths = append(imgPaths, filepath.Join(imgDir, entry.Name()))
+		}
+	}
+
+	// Create a temporary PDF from images
+	tempPdf := filepath.Join(outputDir, "slides.pdf")
+	imgArgs := append(imgPaths, tempPdf)
+	cmd = exec.Command("convert", imgArgs...)
+	cmd.Run()
+
+	// Convert to pptx using LibreOffice (PDF imported as Impress slides)
+	cmd = exec.Command("libreoffice",
+		"--headless",
+		"--infilter=impress_pdf_import",
+		"-env:UserInstallation=file:///app/.config/libreoffice",
+		"--convert-to", "pptx:Impress MS PowerPoint 2007 XML",
+		"--outdir", outputDir,
+		tempPdf)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("LibreOffice PDF to PPT output: %s", string(output))
+		os.RemoveAll(outputDir)
+		sendError(w, fmt.Sprintf("Conversion failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Find the converted file
+	var convertedFile string
+	entries, err := os.ReadDir(outputDir)
+	if err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".pptx") {
+				convertedFile = filepath.Join(outputDir, entry.Name())
+				break
+			}
+		}
+	}
+
+	if convertedFile == "" {
+		log.Printf("PDF to PPT: No pptx file found. Dir contents: %v", entries)
+		os.RemoveAll(outputDir)
+		sendError(w, "Conversion produced no output file", http.StatusInternalServerError)
+		return
+	}
+
+	finalPath := generateOutputPath("converted", ".pptx")
+	err = os.Rename(convertedFile, finalPath)
+	if err != nil {
+		copyFile(convertedFile, finalPath)
+	}
+	os.RemoveAll(outputDir)
+
+	sendDownloadResponse(w, filepath.Base(finalPath))
 }
 
 // POST /api/convert/pdf-to-image
