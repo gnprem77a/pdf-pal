@@ -430,15 +430,18 @@ func handleExtract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert to page selection strings
+	// Use CollectPages which creates a new PDF with only the selected pages
+	// This is different from ExtractPagesFile which extracts to a directory
+	outputPath := generateOutputPath("extracted", ".pdf")
+
+	// Convert pages to page selection string (e.g., "1,3,5-7")
 	var pageSelection []string
 	for _, p := range pages {
 		pageSelection = append(pageSelection, strconv.Itoa(p))
 	}
 
-	outputPath := generateOutputPath("extracted", ".pdf")
-
-	err = api.ExtractPagesFile(inputPath, outputPath, pageSelection, nil)
+	// Use Collect instead of ExtractPages - Collect creates a single PDF with selected pages
+	err = api.CollectFile(inputPath, outputPath, pageSelection, nil)
 	if err != nil {
 		sendError(w, fmt.Sprintf("Extraction failed: %v", err), http.StatusInternalServerError)
 		return
