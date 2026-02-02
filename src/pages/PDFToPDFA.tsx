@@ -1,11 +1,25 @@
 import { useState } from "react";
-import { FileCheck, AlertCircle } from "lucide-react";
+import { FileCheck } from "lucide-react";
 import ToolLayout from "@/components/ToolLayout";
 import FileUpload from "@/components/FileUpload";
+import ProcessingStatus from "@/components/ProcessingStatus";
 import { Button } from "@/components/ui/button";
+import { useBackendPdf, getBaseName } from "@/hooks/use-backend-pdf";
 
 const PDFToPDFA = () => {
   const [files, setFiles] = useState<File[]>([]);
+  const { status, progress, processFiles, reset } = useBackendPdf();
+
+  const handleConvert = async () => {
+    if (files.length === 0) return;
+    const baseName = getBaseName(files[0].name);
+    await processFiles("pdfToPdfa", files, undefined, `${baseName}-pdfa.pdf`);
+  };
+
+  const handleReset = () => {
+    setFiles([]);
+    reset();
+  };
 
   return (
     <ToolLayout
@@ -23,41 +37,42 @@ const PDFToPDFA = () => {
         </p>
       </div>
 
-      <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-6 text-center">
-        <AlertCircle className="mx-auto mb-3 h-8 w-8 text-yellow-600" />
-        <p className="text-yellow-700 dark:text-yellow-300">
-          <strong>Backend Required:</strong> PDF/A conversion cannot be done client-side.
-        </p>
-        <p className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
-          PDF/A requires font embedding, color profile conversion, and metadata validation that browsers can't perform.
-        </p>
-        <p className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
-          Use <code className="rounded bg-yellow-200/50 px-1">Ghostscript</code> in your Go backend:
-        </p>
-        <pre className="mt-2 rounded bg-yellow-200/30 p-2 text-left text-xs">
-{`gs -dPDFA -dBATCH -dNOPAUSE \\
-   -sDEVICE=pdfwrite \\
-   -sOutputFile=output.pdf \\
-   input.pdf`}
-        </pre>
-      </div>
+      {status === "idle" || status === "error" ? (
+        <>
+          <FileUpload
+            files={files}
+            onFilesChange={setFiles}
+            title="Drop your PDF file here"
+            description="Select a PDF to convert to PDF/A"
+          />
 
-      <div className="mt-6 opacity-50 pointer-events-none">
-        <FileUpload
-          files={files}
-          onFilesChange={setFiles}
-          title="Drop your PDF file here"
-          description="Select a PDF to convert to PDF/A"
-        />
+          {files.length > 0 && (
+            <div className="mt-6 flex justify-center">
+              <Button size="lg" onClick={handleConvert} className="px-8">
+                Convert to PDF/A
+              </Button>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <ProcessingStatus
+            status={status}
+            progress={progress}
+            message={
+              status === "success"
+                ? "Your PDF/A file is ready for download!"
+                : "Converting to PDF/A..."
+            }
+          />
 
-        {files.length > 0 && (
-          <div className="mt-6 flex justify-center">
-            <Button size="lg" className="px-8" disabled>
-              Convert to PDF/A
-            </Button>
-          </div>
-        )}
-      </div>
+          {status === "success" && (
+            <div className="mt-6 flex justify-center">
+              <Button onClick={handleReset}>Convert Another PDF</Button>
+            </div>
+          )}
+        </>
+      )}
     </ToolLayout>
   );
 };

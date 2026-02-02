@@ -4,31 +4,30 @@ import ToolLayout from "@/components/ToolLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import ProcessingStatus from "@/components/ProcessingStatus";
-import { useBackendPdf } from "@/hooks/use-backend-pdf";
 import { getApiUrl } from "@/lib/api-config";
 import { triggerDownload } from "@/hooks/use-backend-pdf";
 import { toast } from "sonner";
 
 const HTMLToPDF = () => {
   const [htmlContent, setHtmlContent] = useState("<h1>Hello World</h1>\n<p>This is a sample HTML content.</p>");
-  const [url, setUrl] = useState("");
   const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [progress, setProgress] = useState(0);
 
   const handleConvert = async () => {
+    if (!htmlContent.trim()) return;
+
     setStatus("processing");
     setProgress(10);
 
     try {
+      // Create a temporary HTML file to send to the backend
+      const htmlBlob = new Blob([htmlContent], { type: "text/html" });
+      const htmlFile = new File([htmlBlob], "content.html", { type: "text/html" });
+
       const formData = new FormData();
-      
-      if (url.trim()) {
-        formData.append("url", url);
-      } else {
-        formData.append("html", htmlContent);
-      }
+      formData.append("file0", htmlFile);
+      formData.append("fileCount", "1");
 
       setProgress(30);
 
@@ -78,28 +77,17 @@ const HTMLToPDF = () => {
       {status === "idle" || status === "error" ? (
         <div className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="url">URL (optional)</Label>
-            <Input
-              id="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com"
-            />
-            <p className="text-xs text-muted-foreground">
-              Enter a URL to convert, or use the HTML editor below.
-            </p>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="html">HTML Content</Label>
             <Textarea
               id="html"
               value={htmlContent}
               onChange={(e) => setHtmlContent(e.target.value)}
               placeholder="Enter your HTML content..."
-              className="min-h-[200px] font-mono text-sm"
-              disabled={!!url.trim()}
+              className="min-h-[300px] font-mono text-sm"
             />
+            <p className="text-xs text-muted-foreground">
+              Enter HTML content to convert to PDF. You can include inline CSS styles.
+            </p>
           </div>
 
           <div className="flex justify-center">
@@ -107,7 +95,7 @@ const HTMLToPDF = () => {
               size="lg" 
               onClick={handleConvert} 
               className="px-8"
-              disabled={!htmlContent.trim() && !url.trim()}
+              disabled={!htmlContent.trim()}
             >
               Convert to PDF
             </Button>

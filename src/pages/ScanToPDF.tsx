@@ -12,7 +12,7 @@ const ScanToPDF = () => {
 
   const handleConvert = async () => {
     if (files.length === 0) return;
-    await processFiles("scanToPdf", files, undefined, "scanned-document.pdf");
+    await processFiles("imageToPdf", files, undefined, "scanned-document.pdf");
   };
 
   const handleReset = () => { setFiles([]); reset(); };

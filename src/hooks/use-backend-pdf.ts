@@ -119,23 +119,9 @@ export function useBackendPdf(options: UseBackendPdfOptions = {}) {
  * This works on all platforms including Android WebView
  */
 export function triggerDownload(url: string, filename?: string): void {
-  // Method 1: Create anchor and click (works for most browsers)
-  const link = document.createElement("a");
-  link.href = url;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  
-  if (filename) {
-    link.download = filename;
-  }
-  
-  document.body.appendChild(link);
-  link.click();
-  
-  // Cleanup
-  setTimeout(() => {
-    document.body.removeChild(link);
-  }, 100);
+  // Use window.location.href for maximum compatibility with Android WebView
+  // This ensures the DownloadManager handles the download properly
+  window.location.href = url;
 }
 
 /**
