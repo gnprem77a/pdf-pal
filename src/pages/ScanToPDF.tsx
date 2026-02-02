@@ -12,22 +12,57 @@ const ScanToPDF = () => {
 
   const handleConvert = async () => {
     if (files.length === 0) return;
-    await processFiles("imageToPdf", files, undefined, "scanned-document.pdf");
+    // Use dedicated scan-to-pdf endpoint with enhancement + OCR
+    await processFiles("scanToPdf", files, undefined, "scanned-document.pdf");
   };
 
-  const handleReset = () => { setFiles([]); reset(); };
+  const handleReset = () => {
+    setFiles([]);
+    reset();
+  };
 
   return (
-    <ToolLayout title="Scan to PDF" description="Convert scanned images to PDF" icon={Camera} color="image">
+    <ToolLayout
+      title="Scan to PDF"
+      description="Convert scanned images to searchable PDF with auto-enhancement"
+      icon={Camera}
+      color="image"
+    >
       {status === "idle" || status === "error" ? (
         <>
-          <FileUpload files={files} onFilesChange={setFiles} accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple maxFiles={50} title="Drop scanned images here" description="Select images to convert to PDF" />
-          {files.length > 0 && <div className="mt-6 flex justify-center"><Button size="lg" onClick={handleConvert} className="px-8">Create PDF ({files.length} images)</Button></div>}
+          <FileUpload
+            files={files}
+            onFilesChange={setFiles}
+            accept=".jpg,.jpeg,.png,.gif,.webp,.bmp"
+            multiple
+            maxFiles={50}
+            title="Drop scanned images here"
+            description="Images will be enhanced (deskew, contrast) and OCR'd for searchable text"
+          />
+          {files.length > 0 && (
+            <div className="mt-6 flex justify-center">
+              <Button size="lg" onClick={handleConvert} className="px-8">
+                Create Searchable PDF ({files.length} image{files.length > 1 ? "s" : ""})
+              </Button>
+            </div>
+          )}
         </>
       ) : (
         <>
-          <ProcessingStatus status={status} progress={progress} message={status === "success" ? "PDF ready!" : "Creating PDF..."} />
-          {status === "success" && <div className="mt-6 flex justify-center"><Button onClick={handleReset}>Scan More</Button></div>}
+          <ProcessingStatus
+            status={status}
+            progress={progress}
+            message={
+              status === "success"
+                ? "Your searchable PDF is ready!"
+                : "Enhancing images and applying OCR..."
+            }
+          />
+          {status === "success" && (
+            <div className="mt-6 flex justify-center">
+              <Button onClick={handleReset}>Scan More Documents</Button>
+            </div>
+          )}
         </>
       )}
     </ToolLayout>

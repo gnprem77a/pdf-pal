@@ -87,6 +87,7 @@ func main() {
 	mux.HandleFunc("/api/convert/excel-to-pdf", handleExcelToPDF)
 	mux.HandleFunc("/api/convert/ppt-to-pdf", handlePPTToPDF)
 	mux.HandleFunc("/api/convert/image-to-pdf", handleImageToPDF)
+	mux.HandleFunc("/api/convert/scan-to-pdf", handleScanToPDF)
 	mux.HandleFunc("/api/convert/html-to-pdf", handleHTMLToPDF)
 
 	// Conversions - From PDF
@@ -1164,6 +1165,100 @@ func handleImageToPDF(w http.ResponseWriter, r *http.Request) {
 		sendError(w, fmt.Sprintf("Image to PDF conversion failed: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	sendDownloadResponse(w, filepath.Base(outputPath))
+}
+
+// POST /api/convert/scan-to-pdf - Convert scanned images with enhancement + OCR
+func handleScanToPDF(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(100 << 20) // 100MB max
+
+	fileCountStr := r.FormValue("fileCount")
+	fileCount, _ := strconv.Atoi(fileCountStr)
+	if fileCount == 0 {
+		fileCount = 1
+	}
+
+	// Create working directory for this scan job
+	jobID := uuid.New().String()[:8]
+	workDir := filepath.Join(TempDir, "output", "scan-"+jobID)
+	os.MkdirAll(workDir, 0755)
+
+	var enhancedImages []string
+
+	for i := 0; i < fileCount; i++ {
+		inputPath, err := saveUploadedFile(r, fmt.Sprintf("file%d", i))
+		if err != nil {
+			if i == 0 {
+				os.RemoveAll(workDir)
+				sendError(w, "Failed to read file", http.StatusBadRequest)
+				return
+			}
+			break
+		}
+
+		// Enhance image using ImageMagick:
+		// - Normalize contrast
+		// - Deskew (auto-straighten)
+		// - Sharpen for better OCR
+		// - Convert to grayscale for cleaner scan look
+		enhancedPath := filepath.Join(workDir, fmt.Sprintf("enhanced-%d.png", i))
+		
+		cmd := exec.Command("convert", inputPath,
+			"-colorspace", "gray",      // Convert to grayscale
+			"-normalize",               // Auto-adjust contrast
+			"-deskew", "40%",           // Auto-straighten
+			"-sharpen", "0x1",          // Sharpen for better OCR
+			"-quality", "95",
+			enhancedPath)
+
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Printf("ImageMagick enhance output: %s", string(output))
+			// Fall back to original if enhancement fails
+			enhancedPath = inputPath
+		}
+
+		enhancedImages = append(enhancedImages, enhancedPath)
+	}
+
+	// Combine enhanced images into a single PDF
+	tempPdfPath := filepath.Join(workDir, "scanned.pdf")
+	args := append(enhancedImages, tempPdfPath)
+	cmd := exec.Command("convert", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("ImageMagick PDF output: %s", string(output))
+		os.RemoveAll(workDir)
+		sendError(w, fmt.Sprintf("Failed to create PDF: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Apply OCR to make the PDF searchable using ocrmypdf
+	outputPath := generateOutputPath("scanned-document", ".pdf")
+	ocrCmd := exec.Command("ocrmypdf",
+		"--skip-text",                    // Skip pages that already have text
+		"--deskew",                       // Additional deskew during OCR
+		"--clean",                        // Clean up scan artifacts
+		"--optimize", "1",                // Light optimization
+		"-l", "eng",                      // English language
+		tempPdfPath,
+		outputPath)
+
+	ocrOutput, ocrErr := ocrCmd.CombinedOutput()
+	if ocrErr != nil {
+		log.Printf("OCRmyPDF output: %s", string(ocrOutput))
+		// If OCR fails, use the non-OCR version
+		os.Rename(tempPdfPath, outputPath)
+	}
+
+	// Cleanup working directory
+	os.RemoveAll(workDir)
 
 	sendDownloadResponse(w, filepath.Base(outputPath))
 }

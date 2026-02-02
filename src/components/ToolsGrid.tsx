@@ -88,7 +88,7 @@ const tools = [
   {
     icon: Camera,
     title: "Scan to PDF",
-    description: "Scan documents using your camera.",
+    description: "Auto-enhance + OCR for searchable PDFs.",
     color: "image" as const,
     href: "/scan-to-pdf",
     category: "organize" as Category,
@@ -121,8 +121,8 @@ const tools = [
   // CONVERT TO PDF
   {
     icon: Image,
-    title: "JPG to PDF",
-    description: "Convert images to PDF format.",
+    title: "Image to PDF",
+    description: "Convert JPG, PNG, and other images to PDF.",
     color: "image" as const,
     href: "/image-to-pdf",
     category: "convert" as Category,
@@ -162,8 +162,8 @@ const tools = [
   // CONVERT FROM PDF
   {
     icon: Image,
-    title: "PDF to JPG",
-    description: "Convert PDF pages to images.",
+    title: "PDF to Image",
+    description: "Convert PDF pages to JPG or PNG.",
     color: "image" as const,
     href: "/pdf-to-image",
     category: "convert" as Category,
