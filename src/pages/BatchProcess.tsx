@@ -64,7 +64,8 @@ const BatchProcess = () => {
       });
 
       const endpoint = operation === "merge" ? "mergePdf" : "batchProcess";
-      const response = await fetch(getApiUrl(endpoint), {
+      const url = getApiUrl(endpoint as any);
+      const response = await fetch(url, {
         method: "POST",
         body: formData,
       });

@@ -14,8 +14,7 @@ type ImageFormat = "png" | "jpeg";
 const PDFToImage = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [format, setFormat] = useState<ImageFormat>("png");
-  const [quality, setQuality] = useState([90]);
-  const [scale, setScale] = useState([2]);
+  const [dpi, setDpi] = useState([150]);
 
   const { status, progress, processFiles, reset } = useBackendPdf();
 
@@ -27,8 +26,7 @@ const PDFToImage = () => {
       files,
       { 
         format, 
-        quality: quality[0].toString(),
-        scale: scale[0].toString()
+        dpi: dpi[0].toString()
       },
       `${baseName}-images.zip`
     );
@@ -77,31 +75,19 @@ const PDFToImage = () => {
 
               <div className="space-y-3">
                 <Label className="text-base font-medium">
-                  Scale: {scale[0]}x ({scale[0] === 1 ? "72" : scale[0] === 2 ? "144" : "216"} DPI)
+                  Resolution: {dpi[0]} DPI
                 </Label>
                 <Slider
-                  value={scale}
-                  onValueChange={setScale}
-                  min={1}
-                  max={3}
-                  step={0.5}
+                  value={dpi}
+                  onValueChange={setDpi}
+                  min={72}
+                  max={300}
+                  step={30}
                 />
+                <p className="text-sm text-muted-foreground">
+                  Higher DPI = better quality, larger files
+                </p>
               </div>
-
-              {format === "jpeg" && (
-                <div className="space-y-3">
-                  <Label className="text-base font-medium">
-                    Quality: {quality[0]}%
-                  </Label>
-                  <Slider
-                    value={quality}
-                    onValueChange={setQuality}
-                    min={10}
-                    max={100}
-                    step={5}
-                  />
-                </div>
-              )}
 
               <div className="flex justify-center">
                 <Button size="lg" onClick={handleConvert} className="px-8">
