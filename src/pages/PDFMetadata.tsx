@@ -29,7 +29,7 @@ const PDFMetadata = () => {
   };
 
   return (
-    <ToolLayout title="PDF Metadata" description="Edit PDF document properties" icon={Info} color="compress">
+    <ToolLayout title="PDF Metadata" description="Edit PDF document properties" icon={Info} color="compress" previewFile={files.length > 0 ? files[0] : null}>
       {status === "idle" || status === "error" ? (
         <>
           <FileUpload files={files} onFilesChange={setFiles} title="Drop your PDF file here" description="Select a PDF to edit metadata" />

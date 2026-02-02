@@ -35,6 +35,7 @@ const RotatePDF = () => {
       description="Rotate PDF pages to the correct orientation"
       icon={RotateCw}
       color="merge"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

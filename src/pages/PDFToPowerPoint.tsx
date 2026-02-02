@@ -27,6 +27,7 @@ const PDFToPowerPoint = () => {
       description="Convert PDF files to PowerPoint presentations"
       icon={Presentation}
       color="image"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

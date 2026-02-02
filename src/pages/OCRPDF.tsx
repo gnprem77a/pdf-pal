@@ -51,6 +51,7 @@ const OCRPDF = () => {
       description="Make scanned PDFs searchable using optical character recognition"
       icon={FileSearch}
       color="compress"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

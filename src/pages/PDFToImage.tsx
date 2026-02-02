@@ -43,6 +43,7 @@ const PDFToImage = () => {
       description="Convert PDF pages to JPG or PNG images"
       icon={Image}
       color="image"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

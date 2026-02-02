@@ -27,6 +27,7 @@ const ScanToPDF = () => {
       description="Convert scanned images to searchable PDF with auto-enhancement"
       icon={Camera}
       color="image"
+      previewFile={null}
     >
       {status === "idle" || status === "error" ? (
         <>

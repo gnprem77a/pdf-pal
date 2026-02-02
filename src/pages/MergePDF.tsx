@@ -26,6 +26,7 @@ const MergePDF = () => {
       description="Combine multiple PDF files into one document"
       icon={Merge}
       color="merge"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

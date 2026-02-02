@@ -104,6 +104,7 @@ const DeletePages = () => {
       description="Remove specific pages from your PDF"
       icon={Trash2}
       color="split"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

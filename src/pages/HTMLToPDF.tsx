@@ -73,6 +73,7 @@ const HTMLToPDF = () => {
       description="Convert HTML content to PDF format"
       icon={Code}
       color="word"
+      previewFile={null}
     >
       {status === "idle" || status === "error" ? (
         <div className="space-y-6">

@@ -64,6 +64,7 @@ const RedactPDF = () => {
       description="Permanently remove sensitive information from PDF documents"
       icon={EyeOff}
       color="protect"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

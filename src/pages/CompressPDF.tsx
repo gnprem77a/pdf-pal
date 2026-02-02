@@ -82,6 +82,7 @@ const CompressPDF = () => {
       description="Reduce PDF file size while maintaining quality"
       icon={FileDown}
       color="compress"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

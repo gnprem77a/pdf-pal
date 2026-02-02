@@ -27,6 +27,7 @@ const PDFToExcel = () => {
       description="Convert PDF tables to Excel spreadsheets"
       icon={Sheet}
       color="compress"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

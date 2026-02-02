@@ -26,6 +26,7 @@ const ImageToPDF = () => {
       description="Convert images to PDF format"
       icon={Image}
       color="image"
+      previewFile={null}
     >
       {status === "idle" || status === "error" ? (
         <>

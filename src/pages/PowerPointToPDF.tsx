@@ -27,6 +27,7 @@ const PowerPointToPDF = () => {
       description="Convert PowerPoint presentations to PDF format"
       icon={Presentation}
       color="image"
+      previewFile={null}
     >
       {status === "idle" || status === "error" ? (
         <>

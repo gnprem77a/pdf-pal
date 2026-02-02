@@ -27,6 +27,7 @@ const WordToPDF = () => {
       description="Convert Word documents to PDF format"
       icon={FileType}
       color="word"
+      previewFile={null}
     >
       {status === "idle" || status === "error" ? (
         <>

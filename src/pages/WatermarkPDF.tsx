@@ -37,6 +37,7 @@ const WatermarkPDF = () => {
       description="Add text watermark to your PDF files"
       icon={Stamp}
       color="split"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

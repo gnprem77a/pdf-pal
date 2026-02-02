@@ -42,6 +42,7 @@ const CropPDF = () => {
       description="Adjust margins and crop PDF pages"
       icon={Crop}
       color="split"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

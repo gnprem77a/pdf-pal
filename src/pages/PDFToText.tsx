@@ -27,6 +27,7 @@ const PDFToText = () => {
       description="Extract text content from PDF files"
       icon={FileText}
       color="word"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>

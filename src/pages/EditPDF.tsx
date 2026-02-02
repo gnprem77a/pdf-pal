@@ -13,6 +13,7 @@ const EditPDF = () => {
       description="Add text, shapes, and annotations to PDF files"
       icon={FileText}
       color="word"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-6 text-center">
         <Construction className="mx-auto mb-3 h-12 w-12 text-yellow-600 dark:text-yellow-400" />

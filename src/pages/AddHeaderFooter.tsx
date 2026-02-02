@@ -39,6 +39,7 @@ const AddHeaderFooter = () => {
       description="Insert custom headers and footers to your PDF"
       icon={AlignVerticalSpaceAround}
       color="split"
+      previewFile={files.length > 0 ? files[0] : null}
     >
       {status === "idle" || status === "error" ? (
         <>
