@@ -77,6 +77,7 @@ func main() {
 	mux.HandleFunc("/api/pdf/sign", handleSign)
 	mux.HandleFunc("/api/pdf/redact", handleRedact)
 	mux.HandleFunc("/api/pdf/compare", handleCompare)
+	mux.HandleFunc("/api/pdf/batch", handleBatch)
 
 	// Security
 	mux.HandleFunc("/api/security/protect", handleProtect)
@@ -1365,6 +1366,73 @@ func handleLibreOfficeConvert(w http.ResponseWriter, r *http.Request, convType, 
 	}
 
 	sendDownloadResponse(w, filepath.Base(finalPath))
+}
+
+// POST /api/pdf/batch - Batch compress multiple PDFs
+func handleBatch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(200 << 20) // 200MB max
+
+	operation := r.FormValue("operation")
+	if operation == "" {
+		operation = "compress"
+	}
+
+	fileCountStr := r.FormValue("fileCount")
+	fileCount, _ := strconv.Atoi(fileCountStr)
+	if fileCount == 0 {
+		sendError(w, "No files provided", http.StatusBadRequest)
+		return
+	}
+
+	// For merge, use the merge handler
+	if operation == "merge" {
+		handleMerge(w, r)
+		return
+	}
+
+	// For compress, process each file and zip results
+	outputDir := filepath.Join(TempDir, "output", "batch-"+uuid.New().String()[:8])
+	os.MkdirAll(outputDir, 0755)
+
+	for i := 0; i < fileCount; i++ {
+		inputPath, err := saveUploadedFile(r, fmt.Sprintf("file%d", i))
+		if err != nil {
+			continue
+		}
+
+		// Get original filename for output
+		file, header, _ := r.FormFile(fmt.Sprintf("file%d", i))
+		if file != nil {
+			file.Close()
+		}
+		baseName := strings.TrimSuffix(header.Filename, filepath.Ext(header.Filename))
+
+		outputPath := filepath.Join(outputDir, fmt.Sprintf("%s-compressed.pdf", baseName))
+
+		// Compress using optimize
+		conf := model.NewDefaultConfiguration()
+		err = api.OptimizeFile(inputPath, outputPath, conf)
+		if err != nil {
+			log.Printf("Batch compress failed for file %d: %v", i, err)
+			continue
+		}
+	}
+
+	// Create ZIP of all compressed files
+	zipPath := generateOutputPath("batch-compressed", ".zip")
+	err := createZipFromDir(outputDir, zipPath)
+	if err != nil {
+		sendError(w, fmt.Sprintf("ZIP creation failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	os.RemoveAll(outputDir)
+	sendDownloadResponse(w, filepath.Base(zipPath))
 }
 
 // ==================== UTILITIES ====================
