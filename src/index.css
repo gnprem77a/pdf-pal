@@ -42,6 +42,9 @@
     --tool-image: 15 90% 60%;
     --tool-protect: 340 82% 52%;
 
+    --success: 152 69% 45%;
+    --success-foreground: 0 0% 100%;
+
     --gradient-hero: linear-gradient(135deg, hsl(243 75% 59%) 0%, hsl(262 83% 58%) 100%);
     --shadow-card: 0 4px 20px -4px hsl(243 75% 59% / 0.15);
     --shadow-card-hover: 0 12px 32px -8px hsl(243 75% 59% / 0.25);
@@ -75,6 +78,9 @@
     --border: 222 47% 18%;
     --input: 222 47% 18%;
     --ring: 243 75% 65%;
+
+    --success: 152 69% 50%;
+    --success-foreground: 0 0% 100%;
   }
 }
 

@@ -55,6 +55,10 @@ export default {
           image: "hsl(var(--tool-image))",
           protect: "hsl(var(--tool-protect))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

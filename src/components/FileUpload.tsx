@@ -1,9 +1,10 @@
 import { forwardRef, useCallback, useRef, useState } from "react";
-import { Upload, X, FileText } from "lucide-react";
+import { Upload, X, FileText, CloudUpload, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import PDFThumbnail from "@/components/PDFThumbnail";
 import { useNativeFilePicker } from "@/hooks/use-native-file-picker";
+
 interface FileUploadProps {
   accept?: string;
   multiple?: boolean;
@@ -58,8 +59,6 @@ const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
         const validFiles = selectedFiles.slice(0, maxFiles - files.length);
         onFilesChange([...files, ...validFiles]);
       }
-
-      // Allow selecting the same file again (some browsers won't fire change otherwise)
       e.target.value = "";
     },
     [files, maxFiles, onFilesChange]
@@ -67,7 +66,6 @@ const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
 
   const openFileDialog = useCallback(async () => {
     if (isNative) {
-      // Use native file picker on mobile
       const pickedFiles = await nativePickFiles({
         accept,
         multiple,
@@ -77,7 +75,6 @@ const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
         onFilesChange([...files, ...pickedFiles]);
       }
     } else {
-      // Use web input on browser
       inputRef.current?.click();
     }
   }, [isNative, nativePickFiles, accept, multiple, maxFiles, files, onFilesChange]);
@@ -102,10 +99,11 @@ const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
     <div className="w-full" ref={ref}>
       <div
         className={cn(
-          "relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-12 transition-all duration-300",
+          "group relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 md:p-12 transition-all duration-500 cursor-pointer",
+          "bg-gradient-to-b from-transparent to-secondary/20",
           isDragging
-            ? "border-primary bg-primary/5 scale-[1.02]"
-            : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50",
+            ? "border-primary bg-primary/10 scale-[1.02] shadow-[0_0_40px_-10px_hsl(var(--primary)/0.4)]"
+            : "border-muted-foreground/30 hover:border-primary/60 hover:bg-secondary/30 hover:shadow-lg",
           files.length > 0 && "pb-6"
         )}
         onDragOver={handleDragOver}
@@ -130,36 +128,90 @@ const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
           className="sr-only"
         />
         
-        <div className="mb-4 rounded-full bg-primary/10 p-4">
-          <Upload className="h-8 w-8 text-primary" />
+        {/* Animated upload icon */}
+        <div className={cn(
+          "relative mb-6 transition-all duration-500",
+          isDragging ? "scale-125" : "group-hover:scale-110"
+        )}>
+          {/* Outer glow ring */}
+          <div className={cn(
+            "absolute inset-0 rounded-full transition-all duration-500",
+            isDragging 
+              ? "bg-primary/30 animate-ping" 
+              : "bg-primary/0 group-hover:bg-primary/10"
+          )} style={{ transform: 'scale(1.5)' }} />
+          
+          {/* Icon container */}
+          <div className={cn(
+            "relative rounded-full p-5 transition-all duration-500",
+            "bg-gradient-to-br from-primary/20 to-primary/5",
+            "ring-2 ring-primary/20",
+            isDragging && "ring-primary/50 bg-primary/20"
+          )}>
+            <CloudUpload className={cn(
+              "h-10 w-10 text-primary transition-all duration-500",
+              isDragging && "animate-bounce-subtle"
+            )} />
+          </div>
+          
+          {/* Sparkle decorations */}
+          <Sparkles className={cn(
+            "absolute -top-2 -right-2 h-5 w-5 text-primary transition-all duration-300",
+            isDragging ? "opacity-100 animate-pulse-soft" : "opacity-0 group-hover:opacity-70"
+          )} />
         </div>
         
-        <h3 className="mb-2 text-xl font-semibold text-foreground">{title}</h3>
-        <p className="text-muted-foreground">{description}</p>
+        {/* Text content */}
+        <h3 className={cn(
+          "mb-2 text-xl font-semibold text-foreground transition-all duration-300",
+          isDragging && "text-primary"
+        )}>
+          {isDragging ? "Release to upload" : title}
+        </h3>
+        <p className="text-muted-foreground text-center">
+          {description}
+        </p>
+        
+        {/* Supported formats hint */}
+        <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground/60">
+          <span className="px-2 py-1 rounded-full bg-secondary/50">
+            {accept.split(',').map(a => a.trim().replace('.', '').toUpperCase()).join(' • ')}
+          </span>
+        </div>
         
         {multiple && (
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-3 text-sm text-muted-foreground">
             Max {maxFiles} files
           </p>
         )}
+
+        {/* Decorative corners */}
+        <div className="absolute top-3 left-3 w-4 h-4 border-l-2 border-t-2 border-primary/30 rounded-tl-lg opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="absolute top-3 right-3 w-4 h-4 border-r-2 border-t-2 border-primary/30 rounded-tr-lg opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="absolute bottom-3 left-3 w-4 h-4 border-l-2 border-b-2 border-primary/30 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="absolute bottom-3 right-3 w-4 h-4 border-r-2 border-b-2 border-primary/30 rounded-br-lg opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
 
+      {/* File list */}
       {files.length > 0 && (
         <div className={cn(
-          "mt-6",
+          "mt-6 animate-fade-in",
           showPreviews && files.some(f => f.type === "application/pdf")
-            ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
+            ? "grid grid-cols-2 sm:grid-cols-3 gap-4"
             : "space-y-3"
         )}>
           {files.map((file, index) => {
             const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
             
             if (showPreviews && isPdf) {
-              // Grid card with PDF thumbnail
               return (
                 <div
                   key={`${file.name}-${index}`}
-                  className="group relative flex flex-col items-center rounded-lg border bg-card p-3 transition-shadow hover:shadow-md"
+                  className={cn(
+                    "group/card relative flex flex-col items-center rounded-xl border bg-card/80 backdrop-blur-sm p-4 transition-all duration-300",
+                    "hover:shadow-lg hover:scale-[1.02] hover:border-primary/30"
+                  )}
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <Button
                     variant="ghost"
@@ -168,12 +220,21 @@ const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
                       e.stopPropagation();
                       removeFile(index);
                     }}
-                    className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
+                    className={cn(
+                      "absolute -right-2 -top-2 h-7 w-7 rounded-full",
+                      "bg-destructive/90 text-destructive-foreground",
+                      "opacity-0 shadow-lg transition-all duration-200",
+                      "group-hover/card:opacity-100 hover:scale-110 hover:bg-destructive"
+                    )}
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-3.5 w-3.5" />
                   </Button>
-                  <PDFThumbnail file={file} width={100} showPageCount />
-                  <p className="mt-2 w-full truncate text-center text-xs font-medium text-foreground">
+                  
+                  <div className="rounded-lg overflow-hidden ring-1 ring-border/50">
+                    <PDFThumbnail file={file} width={100} showPageCount />
+                  </div>
+                  
+                  <p className="mt-3 w-full truncate text-center text-sm font-medium text-foreground">
                     {file.name}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -183,14 +244,17 @@ const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
               );
             }
             
-            // List row for non-PDF or when previews disabled
             return (
               <div
                 key={`${file.name}-${index}`}
-                className="flex items-center gap-3 rounded-lg border bg-card p-3"
+                className={cn(
+                  "group/item flex items-center gap-4 rounded-xl border bg-card/80 backdrop-blur-sm p-4 transition-all duration-300",
+                  "hover:shadow-md hover:border-primary/30"
+                )}
+                style={{ animationDelay: `${index * 50}ms` }}
               >
-                <div className="rounded-lg bg-primary/10 p-2">
-                  <FileText className="h-5 w-5 text-primary" />
+                <div className="rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 p-3 ring-1 ring-primary/20">
+                  <FileText className="h-6 w-6 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="truncate font-medium text-foreground">
@@ -207,7 +271,7 @@ const FileUpload = forwardRef<HTMLDivElement, FileUploadProps>(({
                     e.stopPropagation();
                     removeFile(index);
                   }}
-                  className="shrink-0"
+                  className="shrink-0 rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"
                 >
                   <X className="h-4 w-4" />
                 </Button>
