@@ -1339,8 +1339,10 @@ func handleLibreOfficeConvert(w http.ResponseWriter, r *http.Request, convType, 
 	}
 
 	// Run LibreOffice headless conversion
+	// Use -env:UserInstallation to keep profile under /app (not /home)
 	cmd := exec.Command("libreoffice",
 		"--headless",
+		"-env:UserInstallation=file:///app/.config/libreoffice",
 		"--convert-to", convertFormat,
 		"--outdir", outputDir,
 		inputPath)
