@@ -28,6 +28,7 @@ export const API_CONFIG = {
     
     // Image conversions
     imageToPdf: "/api/convert/image-to-pdf",
+    scanToPdf: "/api/convert/scan-to-pdf",
     pdfToImage: "/api/convert/pdf-to-image",
     htmlToPdf: "/api/convert/html-to-pdf",
     
